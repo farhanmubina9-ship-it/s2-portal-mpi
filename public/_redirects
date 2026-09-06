@@ -1,0 +1,5 @@
+/* Redirects rule for Single Page Apps (SPA) on Netlify */
+/* Redirects all sub-paths to index.html for React Router / SPA navigation */
+/* Read more: https://docs.netlify.com/routing/redirects/ */
+
+/*    /index.html   200
