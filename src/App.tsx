@@ -905,7 +905,28 @@ function MainApp() {
 
                       return (
                         <div className="space-y-3">
-                          {/* Top Controls Bar */}
+                          {/* Mobile Notice Banner for Multi-Page PDFs */}
+                          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2">
+                            <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5">
+                              <p className="font-bold text-[11px]">💡 Petunjuk Membaca Silabus di HP (iPhone/Android):</p>
+                              <p className="text-[11px] opacity-90 leading-tight">
+                                Browser HP (Safari/Chrome) membatasi preview kotak di bawah hanya 1 halaman. Klik tombol hijau di bawah untuk membaca <strong>seluruh halaman silabus secara lengkap</strong>.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Primary Full-Width Action Button for Mobile & Desktop */}
+                          <a
+                            href={activePdf.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99]"
+                          >
+                            <BookOpen className="w-4 h-4" /> 📖 Buka Seluruh Halaman PDF (Full Screen HP)
+                          </a>
+
+                          {/* Controls Bar */}
                           <div className="p-3 rounded-2xl bg-slate-100 dark:bg-gray-800/90 border border-slate-200/80 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                             <div className="flex items-center gap-2 truncate pr-2">
                               <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -915,18 +936,10 @@ function MainApp() {
                             <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                               <a
                                 href={activePdf.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 sm:flex-initial px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                              >
-                                <BookOpen className="w-3.5 h-3.5" /> 📱 Fullscreen Layar HP
-                              </a>
-                              <a
-                                href={activePdf.url}
                                 download={activePdf.name}
-                                className="flex-1 sm:flex-initial px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                                className="w-full sm:w-auto px-4 py-2 bg-slate-800 dark:bg-gray-700 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                               >
-                                <Download className="w-3.5 h-3.5" /> Unduh
+                                <Download className="w-3.5 h-3.5" /> Unduh File PDF
                               </a>
                             </div>
                           </div>
@@ -941,7 +954,7 @@ function MainApp() {
                             
                             {/* Mobile Floating Action Badge */}
                             <div className="sm:hidden absolute bottom-2 left-2 right-2 p-2 bg-slate-900/90 backdrop-blur-xs text-white text-[11px] font-semibold rounded-xl flex items-center justify-between gap-2 shadow-lg border border-slate-700">
-                              <span className="truncate">Tampilan di HP kurang jelas?</span>
+                              <span className="truncate">Ingin baca semua halaman?</span>
                               <a
                                 href={activePdf.url}
                                 target="_blank"
