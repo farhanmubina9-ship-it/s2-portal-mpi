@@ -375,6 +375,30 @@ function MainApp() {
   const [editPjName, setEditPjName] = useState('');
   const [editPjContact, setEditPjContact] = useState('');
 
+  // Fullscreen In-App Mobile PDF Viewer State
+  const [fullscreenPdf, setFullscreenPdf] = useState<SyllabusFile | null>(null);
+
+  const handleOpenPdfFullscreen = (pdf: SyllabusFile) => {
+    if (pdf.url && pdf.url.startsWith('data:application/pdf;base64,')) {
+      try {
+        const base64Data = pdf.url.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        setFullscreenPdf({ ...pdf, url: blobUrl });
+        return;
+      } catch (e) {
+        console.error("Base64 conversion error:", e);
+      }
+    }
+    setFullscreenPdf(pdf);
+  };
+
   const selectedCourse = courses.find(c => c.id === selectedCourseId);
   const selectedCoursePdfs = selectedCourse ? getCoursePdfs(selectedCourse) : [];
 
@@ -917,14 +941,12 @@ function MainApp() {
                           </div>
 
                           {/* Primary Full-Width Action Button for Mobile & Desktop */}
-                          <a
-                            href={activePdf.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => handleOpenPdfFullscreen(activePdf)}
                             className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99]"
                           >
-                            <BookOpen className="w-4 h-4" /> 📖 Buka Seluruh Halaman PDF (Full Screen HP)
-                          </a>
+                            <BookOpen className="w-4 h-4" /> 📖 Buka Seluruh Halaman PDF (In-App Fullscreen)
+                          </button>
 
                           {/* Controls Bar */}
                           <div className="p-3 rounded-2xl bg-slate-100 dark:bg-gray-800/90 border border-slate-200/80 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
@@ -955,14 +977,12 @@ function MainApp() {
                             {/* Mobile Floating Action Badge */}
                             <div className="sm:hidden absolute bottom-2 left-2 right-2 p-2 bg-slate-900/90 backdrop-blur-xs text-white text-[11px] font-semibold rounded-xl flex items-center justify-between gap-2 shadow-lg border border-slate-700">
                               <span className="truncate">Ingin baca semua halaman?</span>
-                              <a
-                                href={activePdf.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                onClick={() => handleOpenPdfFullscreen(activePdf)}
                                 className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg shrink-0 text-xs flex items-center gap-1"
                               >
                                 Buka Full PDF ↗
-                              </a>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1907,6 +1927,44 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                 {isDirectAnalyzing ? 'Membaca...' : 'Ekstrak via AI'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: IN-APP FULLSCREEN PDF READER FOR MOBILE & DESKTOP */}
+      {fullscreenPdf && (
+        <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col font-sans">
+          {/* Header Bar */}
+          <div className="p-3 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between gap-2 shadow-md">
+            <div className="flex items-center gap-2 truncate pr-2">
+              <FileText className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span className="font-bold text-xs sm:text-sm truncate">{fullscreenPdf.name}</span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={fullscreenPdf.url}
+                download={fullscreenPdf.name}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /> Unduh
+              </a>
+              <button
+                onClick={() => setFullscreenPdf(null)}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1"
+              >
+                ✕ Tutup
+              </button>
+            </div>
+          </div>
+
+          {/* Fullscreen Body Frame */}
+          <div className="flex-1 w-full bg-slate-900 overflow-hidden relative">
+            <iframe
+              src={fullscreenPdf.url}
+              title={fullscreenPdf.name}
+              className="w-full h-full border-none"
+            />
           </div>
         </div>
       )}
