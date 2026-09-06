@@ -401,6 +401,11 @@ function MainApp() {
   };
 
   const handleDirectAIExtract = () => {
+    if (!isLoggedInAdmin) {
+      alert('Akses Ditolak: Fitur Ekstrak AI silabus khusus untuk Admin Kosma (PIN: 12345).');
+      setShowDirectAIModal(false);
+      return;
+    }
     if (!directAIText.trim() || !selectedCourseId) return;
     setIsDirectAnalyzing(true);
     setTimeout(() => {
@@ -844,12 +849,18 @@ function MainApp() {
                   <h3 className="font-bold text-sm flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                     <BookOpen className="w-4 h-4" /> Ringkasan Silabus Perkuliahan
                   </h3>
-                  <button
-                    onClick={() => setShowDirectAIModal(true)}
-                    className="px-2.5 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs font-bold flex items-center gap-1 transition-all"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" /> + Ekstrak AI
-                  </button>
+                  {isLoggedInAdmin ? (
+                    <button
+                      onClick={() => setShowDirectAIModal(true)}
+                      className="px-2.5 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs font-bold flex items-center gap-1 transition-all"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" /> + Ekstrak AI
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-amber-500" /> Khusus Admin Kosma
+                    </span>
+                  )}
                 </div>
                 
                 <p className="text-xs sm:text-sm text-slate-700 dark:text-gray-300 leading-relaxed">
