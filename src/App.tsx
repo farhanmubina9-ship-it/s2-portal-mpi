@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import { INITIAL_COURSES, Course, Task, Group, SyllabusFile } from './coursesData';
 import { supabase } from './supabaseClient';
 import { 
@@ -105,6 +105,7 @@ function MainApp() {
   });
 
   const [isSyncedWithSupabase, setIsSyncedWithSupabase] = useState<boolean>(false);
+  const isInitialFetchCompleted = useRef<boolean>(false);
   const [showSqlGuide, setShowSqlGuide] = useState<boolean>(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'jadwal' | 'tugas' | 'admin'>('jadwal');
@@ -160,7 +161,7 @@ function MainApp() {
   useEffect(() => {
     const fetchFromSupabase = async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('mps2_store')
           .select('data')
           .eq('id', 'courses_data')
@@ -171,9 +172,13 @@ function MainApp() {
           setCourses(merged);
           localStorage.setItem('mps2_courses', JSON.stringify(merged));
           setIsSyncedWithSupabase(true);
+        } else if (error) {
+          console.warn("Supabase initial fetch notice:", error.message);
         }
       } catch (err) {
         console.log('Supabase storage fallback to local cache.', err);
+      } finally {
+        isInitialFetchCompleted.current = true;
       }
     };
 
@@ -191,6 +196,7 @@ function MainApp() {
             setCourses(merged);
             localStorage.setItem('mps2_courses', JSON.stringify(merged));
             setIsSyncedWithSupabase(true);
+            isInitialFetchCompleted.current = true;
           }
         }
       )
@@ -205,6 +211,9 @@ function MainApp() {
   useEffect(() => {
     localStorage.setItem('mps2_courses', JSON.stringify(courses));
 
+    // Prevent race condition: DO NOT overwrite Supabase until initial fetch has completed!
+    if (!isInitialFetchCompleted.current) return;
+
     const syncTimer = setTimeout(() => {
       supabase
         .from('mps2_store')
@@ -212,12 +221,38 @@ function MainApp() {
         .then((res) => {
           if (!res.error) {
             setIsSyncedWithSupabase(true);
+          } else {
+            console.error('Supabase auto-sync error:', res.error.message);
+            setIsSyncedWithSupabase(false);
           }
         });
     }, 600);
 
     return () => clearTimeout(syncTimer);
   }, [courses]);
+
+  const handleForceCloudPull = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mps2_store')
+        .select('data')
+        .eq('id', 'courses_data')
+        .single();
+
+      if (data && data.data && Array.isArray(data.data)) {
+        const merged = mergeWithDefaults(data.data);
+        setCourses(merged);
+        localStorage.setItem('mps2_courses', JSON.stringify(merged));
+        setIsSyncedWithSupabase(true);
+        isInitialFetchCompleted.current = true;
+        alert('Berhasil mengambil data terbaru dari Cloud Supabase!');
+      } else {
+        alert('Belum ada data tersimpan di Cloud Supabase. (Error: ' + (error?.message || 'Data Kosong') + ')');
+      }
+    } catch (err: any) {
+      alert('Gagal terhubung ke Supabase: ' + (err.message || 'Network error'));
+    }
+  };
 
   // File PDF Upload Handler (Single)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1372,6 +1407,12 @@ function MainApp() {
 
                     {/* Quick Tools & Backup */}
                     <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={handleForceCloudPull}
+                        className="px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs flex items-center gap-1.5"
+                      >
+                        <Database className="w-3.5 h-3.5" /> 🔄 Pull Data Cloud Supabase
+                      </button>
                       <button
                         onClick={handleExportData}
                         className="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors shadow-xs flex items-center gap-1.5"
