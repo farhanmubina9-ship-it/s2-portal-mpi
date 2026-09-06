@@ -26,7 +26,7 @@ export interface Course {
   syllabusSummary: string;
   syllabusPdfUrl?: string;
   pdfFileName?: string;
-  syllabusPdfs?: SyllabusFile[]; // Support 2 or more PDF files per course
+  syllabusPdfs?: SyllabusFile[];
   pjName?: string;
   pjContact?: string;
   tasks: Task[];
@@ -57,8 +57,8 @@ export const INITIAL_COURSES: Course[] = [
     day: 'Jumat',
     time: '06:30 - 09:00',
     room: 'Ruang 16 Lt.3',
-    pjName: '',
-    pjContact: '',
+    pjName: 'PJ HMPI',
+    pjContact: '0812-3456-7890',
     colorTheme: {
       bgLight: '#FEF3E2',
       borderLight: '#FDE0B2',
@@ -70,10 +70,22 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#FDE68A',
       accent: '#D97706',
     },
-    syllabusSummary: 'Upload silabus mata kuliah ini melalui Panel Admin untuk menampilkan deskripsi perkuliahan.',
+    syllabusSummary: 'Mata kuliah ini membahas matan dan sanad hadis-hadis tematik yang menjadi landasan prinsip kepemimpinan, tata kelola, dan manajemen pendidikan Islam.',
     syllabusPdfs: [],
-    tasks: [],
-    groups: []
+    tasks: [
+      {
+        id: 'hmpi-task-1',
+        title: 'Analisis Hadis Kepemimpinan Pendidikan Islam',
+        description: 'Menyusun ringkasan kualitatif takhrij hadis tematik tentang manajerial pendidikan.',
+        deadline: '2026-09-25T23:59',
+        type: 'Individu',
+        status: 'Belum'
+      }
+    ],
+    groups: [
+      { name: 'Kelompok 1', topic: 'Hadis Kepemimpinan & Pengambilan Keputusan', members: ['Ahmad', 'Siti'] },
+      { name: 'Kelompok 2', topic: 'Hadis Etika & Budaya Organisasi Pendidikan', members: ['Budi', 'Rina'] }
+    ]
   },
   {
     id: 'fmpi',
@@ -83,8 +95,8 @@ export const INITIAL_COURSES: Course[] = [
     day: 'Jumat',
     time: '09:00 - 11:30',
     room: 'Ruang 16 Lt.3',
-    pjName: '',
-    pjContact: '',
+    pjName: 'PJ FMPI',
+    pjContact: '0812-3456-7891',
     colorTheme: {
       bgLight: '#FDE8E8',
       borderLight: '#FBD5D5',
@@ -96,10 +108,21 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#F87171',
       accent: '#E02424',
     },
-    syllabusSummary: 'Upload silabus mata kuliah ini melalui Panel Admin untuk menampilkan deskripsi perkuliahan.',
+    syllabusSummary: 'Mengkaji fondasi ontologis, epistemologis, dan aksiologis filsafat manajemen pendidikan Islam dalam membangun paradigma kelembagaan modern.',
     syllabusPdfs: [],
-    tasks: [],
-    groups: []
+    tasks: [
+      {
+        id: 'fmpi-task-1',
+        title: 'Makalah Kelompok Paradigma Epistemologi MPI',
+        description: 'Menyusun makalah analisis kritis filsafat pendidikan Islam kontemporer.',
+        deadline: '2026-09-28T23:59',
+        type: 'Kelompok',
+        status: 'Belum'
+      }
+    ],
+    groups: [
+      { name: 'Kelompok 1', topic: 'Ontologi & Hakikat Manusia dalam Pend. Islam', members: ['Fajar', 'Nisa'] }
+    ]
   },
   {
     id: 'pmpi',
@@ -109,8 +132,8 @@ export const INITIAL_COURSES: Course[] = [
     day: 'Jumat',
     time: '12:50 - 15:20',
     room: 'PPG C10 Lt.2',
-    pjName: '',
-    pjContact: '',
+    pjName: 'PJ PMPI',
+    pjContact: '0812-3456-7892',
     colorTheme: {
       bgLight: '#EBF5FF',
       borderLight: '#D0E1FD',
@@ -122,9 +145,18 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#93C5FD',
       accent: '#2563EB',
     },
-    syllabusSummary: 'Upload silabus mata kuliah ini melalui Panel Admin untuk menampilkan deskripsi perkuliahan.',
+    syllabusSummary: 'Menganalisis isu-isu strategis, persoalan manajerial, mutu SDM, dan tata kelola sarana prasarana pada lembaga pendidikan Islam kontemporer.',
     syllabusPdfs: [],
-    tasks: [],
+    tasks: [
+      {
+        id: 'pmpi-task-1',
+        title: 'Studi Kasus Problematika Mutu Madrasah',
+        description: 'Analisis lapangan komprehensif problematika manajerial madrasah/pesantren.',
+        deadline: '2026-10-02T23:59',
+        type: 'Individu',
+        status: 'Belum'
+      }
+    ],
     groups: []
   },
   {
@@ -135,8 +167,8 @@ export const INITIAL_COURSES: Course[] = [
     day: 'Jumat',
     time: '15:20 - 17:50',
     room: 'Ruang 16 Lt.3',
-    pjName: '',
-    pjContact: '',
+    pjName: 'PJ TMPI',
+    pjContact: '0812-3456-7893',
     colorTheme: {
       bgLight: '#F3E8FF',
       borderLight: '#E9D5FF',
@@ -148,7 +180,7 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#E9D5FF',
       accent: '#9333EA',
     },
-    syllabusSummary: 'Upload silabus mata kuliah ini melalui Panel Admin untuk menampilkan deskripsi perkuliahan.',
+    syllabusSummary: 'Kajian ayat-ayat Al-Qur\'an berbasis tafsir maudhui (tematik) tentang prinsip komunikasi, perencanaan, dan evaluasi pendidikan.',
     syllabusPdfs: [],
     tasks: [],
     groups: []
@@ -161,8 +193,8 @@ export const INITIAL_COURSES: Course[] = [
     day: 'Sabtu',
     time: '06:30 - 09:00',
     room: 'Ruang 16 Lt.3',
-    pjName: '',
-    pjContact: '',
+    pjName: 'PJ PPI',
+    pjContact: '0812-3456-7894',
     colorTheme: {
       bgLight: '#EEF2FF',
       borderLight: '#E0E7FF',
@@ -174,9 +206,18 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#C7D2FE',
       accent: '#4F46E5',
     },
-    syllabusSummary: 'Upload silabus mata kuliah ini melalui Panel Admin untuk menampilkan deskripsi perkuliahan.',
+    syllabusSummary: 'Menyusun Renstra (Rencana Strategis) dan Operasional lembaga pendidikan Islam berbasis analisis SWOT dan proyeksi kualitatif.',
     syllabusPdfs: [],
-    tasks: [],
+    tasks: [
+      {
+        id: 'ppi-task-1',
+        title: 'Draft Perencanaan Renstra Sekolah Islam',
+        description: 'Menyusun dokumen visi, misi, dan target capaian program 5 tahunan.',
+        deadline: '2026-10-05T23:59',
+        type: 'Kelompok',
+        status: 'Belum'
+      }
+    ],
     groups: []
   },
   {
@@ -187,8 +228,8 @@ export const INITIAL_COURSES: Course[] = [
     day: 'Sabtu',
     time: '09:00 - 11:30',
     room: 'Ruang 16 Lt.3',
-    pjName: '',
-    pjContact: '',
+    pjName: 'PJ MMTPI',
+    pjContact: '0812-3456-7895',
     colorTheme: {
       bgLight: '#ECFDF5',
       borderLight: '#A7F3D0',
@@ -200,7 +241,7 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#6EE7B7',
       accent: '#059669',
     },
-    syllabusSummary: 'Upload silabus mata kuliah ini melalui Panel Admin untuk menampilkan deskripsi perkuliahan.',
+    syllabusSummary: 'Penerapan konsep Total Quality Management (TQM), standar mutu BAN-S/M, serta kepuasan pemangku kepentingan pendidikan Islam.',
     syllabusPdfs: [],
     tasks: [],
     groups: []
@@ -213,8 +254,8 @@ export const INITIAL_COURSES: Course[] = [
     day: 'Sabtu',
     time: '12:10 - 14:40',
     room: 'Ruang 16 Lt.3',
-    pjName: '',
-    pjContact: '',
+    pjName: 'PJ DMPI',
+    pjContact: '0812-3456-7896',
     colorTheme: {
       bgLight: '#F0FDF4',
       borderLight: '#BBF7D0',
@@ -226,7 +267,7 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#86EFAC',
       accent: '#16A34A',
     },
-    syllabusSummary: 'Upload silabus mata kuliah ini melalui Panel Admin untuk menampilkan deskripsi perkuliahan.',
+    syllabusSummary: 'Prinsip dasar pengorganisasian, tata laksana administrasi, supervisi pendidikan, dan kepemimpinan lembaga pendidikan Islam.',
     syllabusPdfs: [],
     tasks: [],
     groups: []
