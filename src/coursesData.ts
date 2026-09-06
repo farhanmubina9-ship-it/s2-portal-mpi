@@ -72,20 +72,8 @@ export const INITIAL_COURSES: Course[] = [
     },
     syllabusSummary: 'Mata kuliah ini membahas matan dan sanad hadis-hadis tematik yang menjadi landasan prinsip kepemimpinan, tata kelola, dan manajemen pendidikan Islam.',
     syllabusPdfs: [],
-    tasks: [
-      {
-        id: 'hmpi-task-1',
-        title: 'Analisis Hadis Kepemimpinan Pendidikan Islam',
-        description: 'Menyusun ringkasan kualitatif takhrij hadis tematik tentang manajerial pendidikan.',
-        deadline: '2026-09-25T23:59',
-        type: 'Individu',
-        status: 'Belum'
-      }
-    ],
-    groups: [
-      { name: 'Kelompok 1', topic: 'Hadis Kepemimpinan & Pengambilan Keputusan', members: ['Ahmad', 'Siti'] },
-      { name: 'Kelompok 2', topic: 'Hadis Etika & Budaya Organisasi Pendidikan', members: ['Budi', 'Rina'] }
-    ]
+    tasks: [],
+    groups: []
   },
   {
     id: 'fmpi',
@@ -110,19 +98,8 @@ export const INITIAL_COURSES: Course[] = [
     },
     syllabusSummary: 'Mengkaji fondasi ontologis, epistemologis, dan aksiologis filsafat manajemen pendidikan Islam dalam membangun paradigma kelembagaan modern.',
     syllabusPdfs: [],
-    tasks: [
-      {
-        id: 'fmpi-task-1',
-        title: 'Makalah Kelompok Paradigma Epistemologi MPI',
-        description: 'Menyusun makalah analisis kritis filsafat pendidikan Islam kontemporer.',
-        deadline: '2026-09-28T23:59',
-        type: 'Kelompok',
-        status: 'Belum'
-      }
-    ],
-    groups: [
-      { name: 'Kelompok 1', topic: 'Ontologi & Hakikat Manusia dalam Pend. Islam', members: ['Fajar', 'Nisa'] }
-    ]
+    tasks: [],
+    groups: []
   },
   {
     id: 'pmpi',
@@ -147,16 +124,7 @@ export const INITIAL_COURSES: Course[] = [
     },
     syllabusSummary: 'Menganalisis isu-isu strategis, persoalan manajerial, mutu SDM, dan tata kelola sarana prasarana pada lembaga pendidikan Islam kontemporer.',
     syllabusPdfs: [],
-    tasks: [
-      {
-        id: 'pmpi-task-1',
-        title: 'Studi Kasus Problematika Mutu Madrasah',
-        description: 'Analisis lapangan komprehensif problematika manajerial madrasah/pesantren.',
-        deadline: '2026-10-02T23:59',
-        type: 'Individu',
-        status: 'Belum'
-      }
-    ],
+    tasks: [],
     groups: []
   },
   {
@@ -208,16 +176,7 @@ export const INITIAL_COURSES: Course[] = [
     },
     syllabusSummary: 'Menyusun Renstra (Rencana Strategis) dan Operasional lembaga pendidikan Islam berbasis analisis SWOT dan proyeksi kualitatif.',
     syllabusPdfs: [],
-    tasks: [
-      {
-        id: 'ppi-task-1',
-        title: 'Draft Perencanaan Renstra Sekolah Islam',
-        description: 'Menyusun dokumen visi, misi, dan target capaian program 5 tahunan.',
-        deadline: '2026-10-05T23:59',
-        type: 'Kelompok',
-        status: 'Belum'
-      }
-    ],
+    tasks: [],
     groups: []
   },
   {

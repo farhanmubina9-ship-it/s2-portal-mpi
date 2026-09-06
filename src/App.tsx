@@ -18,18 +18,27 @@ const readFileAsDataUrl = (file: File): Promise<string> => {
   });
 };
 
-// Safe Merge helper to prevent null/undefined runtime crashes
+// Safe Merge helper to prevent null/undefined runtime crashes and clean dummy data
 const mergeWithDefaults = (savedCourses: any[]): Course[] => {
   if (!Array.isArray(savedCourses) || savedCourses.length === 0) return INITIAL_COURSES;
   return INITIAL_COURSES.map(initial => {
     const saved = savedCourses.find(s => s && s.id === initial.id);
     if (!saved) return initial;
+
+    // Filter out old pre-filled dummy tasks and groups
+    const cleanTasks = Array.isArray(saved.tasks) 
+      ? saved.tasks.filter((t: any) => t && !t.id?.endsWith('-task-1') && !t.id?.startsWith('dummy-')) 
+      : [];
+    const cleanGroups = Array.isArray(saved.groups) 
+      ? saved.groups.filter((g: any) => g && !g.members?.includes('Ahmad') && !g.members?.includes('Fajar')) 
+      : [];
+
     return {
       ...initial,
       ...saved,
       colorTheme: { ...initial.colorTheme, ...(saved.colorTheme || {}) },
-      tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
-      groups: Array.isArray(saved.groups) ? saved.groups : [],
+      tasks: cleanTasks,
+      groups: cleanGroups,
       syllabusPdfs: Array.isArray(saved.syllabusPdfs) ? saved.syllabusPdfs : [],
     };
   });
@@ -285,6 +294,10 @@ function MainApp() {
       { courseId: courses[2]?.id || 'pmpi', file: null },
     ]);
     alert(`Berhasil menyimpan ${validSlots.length} silabus sekaligus! Data tersimpan di Cloud Supabase & dapat diakses semua mahasiswa.`);
+  };
+
+  const handleAddBulkSlot = () => {
+    setBulkSlots(prev => [...prev, { courseId: courses[0]?.id || 'hmpi', file: null }]);
   };
 
   // Backup & Reset Functionality
@@ -874,7 +887,7 @@ function MainApp() {
                   </div>
                 ) : (
                   <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/50 text-center space-y-1">
-                    <p className="text-xs font-bold text-slate-600 dark:text-gray-400">Belum ada file PDF silabus resmi (Bisa upload hingga 2 file PDF).</p>
+                    <p className="text-xs font-bold text-slate-600 dark:text-gray-400">Belum ada file PDF silabus resmi (Dapat mengunggah banyak file PDF tanpa batasan).</p>
                     <p className="text-[11px] text-slate-500 dark:text-gray-500">Kosma dapat mengunggah silabus PDF melalui tombol Ekstrak AI atau Panel Admin Kosma.</p>
                   </div>
                 )}
@@ -1402,7 +1415,7 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                     {/* SECTION: LIST PDF TERUPLOD & MANAGEMENT PER MATKUL */}
                     <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-3`}>
                       <h3 className="font-bold text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                        <Paperclip className="w-4 h-4 shrink-0" /> Kelola File PDF Terunggah Per Mata Kuliah (Max 2 File/Matkul)
+                        <Paperclip className="w-4 h-4 shrink-0" /> Kelola File PDF Terunggah Per Mata Kuliah (Banyak File PDF / Tanpa Batasan)
                       </h3>
 
                       <div className="space-y-2">
@@ -1445,17 +1458,23 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                       </div>
                     </div>
 
-                    {/* SECTION: BULK UPLOAD 3 SLOTS SILABUS */}
+                    {/* SECTION: BULK UPLOAD MULTI SLOTS SILABUS */}
                     <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-4`}>
                       <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-3">
                         <div>
                           <h3 className="font-bold text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                            <Upload className="w-4 h-4 shrink-0" /> Upload Sekaligus (3 Slot PDF Silabus)
+                            <Upload className="w-4 h-4 shrink-0" /> Upload Sekaligus (Multi Slot PDF Silabus)
                           </h3>
                           <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                            Pilih hingga 3 file PDF sekaligus untuk ditambah langsung ke mata kuliah yang sesuai.
+                            Pilih beberapa file PDF sekaligus untuk ditambah langsung ke mata kuliah yang sesuai.
                           </p>
                         </div>
+                        <button
+                          onClick={handleAddBulkSlot}
+                          className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold rounded-xl text-xs flex items-center gap-1 hover:bg-emerald-200 transition-all shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> + Slot PDF
+                        </button>
                       </div>
 
                       <div className="space-y-3">
@@ -1500,14 +1519,14 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                         onClick={handleSaveBulkSlots}
                         className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
                       >
-                        <Check className="w-4 h-4" /> Simpan 3 Slot Silabus Sekaligus
+                        <Check className="w-4 h-4" /> Simpan {bulkSlots.length} Slot Silabus Sekaligus
                       </button>
                     </div>
 
                     {/* SECTION 1: SINGLE UPLOAD & EXTRACTION VIA MANUAL/AI */}
                     <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-4`}>
                       <h3 className="font-bold text-xs sm:text-sm flex items-center gap-2 text-purple-600 dark:text-purple-400">
-                        <Sparkles className="w-4 h-4 shrink-0" /> Upload PDF (Tambah File 1 / File 2) & Ekstraksi AI
+                        <Sparkles className="w-4 h-4 shrink-0" /> Upload Single PDF (Tanpa Batasan File) & Ekstraksi AI
                       </h3>
 
                       <div className="space-y-3">
