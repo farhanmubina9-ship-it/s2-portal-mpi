@@ -489,6 +489,11 @@ function MainApp() {
   };
 
   const handleAddTask = () => {
+    if (!isLoggedInAdmin) {
+      alert('Akses Ditolak: Hanya Admin Kosma (PIN: 12345) yang dapat menambahkan tugas.');
+      setShowAddTaskModal(false);
+      return;
+    }
     if (!selectedCourseId || !newTaskTitle) return;
     const newTask: Task = {
       id: `task-${Date.now()}`,
@@ -511,7 +516,29 @@ function MainApp() {
     setNewTaskDesc('');
   };
 
+  const handleDeleteTask = (courseId: string, taskId: string) => {
+    if (!isLoggedInAdmin) {
+      alert('Hanya Admin Kosma yang dapat menghapus tugas.');
+      return;
+    }
+    if (!window.confirm('Apakah Anda yakin ingin menghapus tugas ini?')) return;
+    setCourses(prev => prev.map(c => {
+      if (c.id === courseId) {
+        return {
+          ...c,
+          tasks: (c.tasks || []).filter(t => t.id !== taskId)
+        };
+      }
+      return c;
+    }));
+  };
+
   const handleAddGroup = () => {
+    if (!isLoggedInAdmin) {
+      alert('Akses Ditolak: Hanya Admin Kosma (PIN: 12345) yang dapat menambahkan kelompok.');
+      setShowAddGroupModal(false);
+      return;
+    }
     if (!selectedCourseId || !newGroupName) return;
     const newGroup: Group = {
       name: newGroupName,
@@ -530,6 +557,22 @@ function MainApp() {
     setNewGroupName('');
     setNewGroupTopic('');
     setNewGroupMembers('');
+  };
+
+  const handleDeleteGroup = (courseId: string, groupIndex: number) => {
+    if (!isLoggedInAdmin) {
+      alert('Hanya Admin Kosma yang dapat menghapus kelompok.');
+      return;
+    }
+    if (!window.confirm('Apakah Anda yakin ingin menghapus kelompok ini?')) return;
+    setCourses(prev => prev.map(c => {
+      if (c.id === courseId) {
+        const updated = [...(c.groups || [])];
+        updated.splice(groupIndex, 1);
+        return { ...c, groups: updated };
+      }
+      return c;
+    }));
   };
 
   const handleToggleTaskStatus = (courseId: string, taskId: string) => {
@@ -842,12 +885,18 @@ function MainApp() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-sm">Daftar Tugas Mata Kuliah</h3>
-                  <button
-                    onClick={() => setShowAddTaskModal(true)}
-                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition-colors shadow-xs"
-                  >
-                    <Plus className="w-4 h-4" /> Tambah Tugas
-                  </button>
+                  {isLoggedInAdmin ? (
+                    <button
+                      onClick={() => setShowAddTaskModal(true)}
+                      className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition-colors shadow-xs"
+                    >
+                      <Plus className="w-4 h-4" /> Tambah Tugas
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-amber-500" /> Khusus Admin Kosma
+                    </span>
+                  )}
                 </div>
 
                 {!(selectedCourse.tasks && selectedCourse.tasks.length > 0) ? (
@@ -886,18 +935,29 @@ function MainApp() {
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => handleToggleTaskStatus(selectedCourse.id, task.id)}
-                          className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all border ${
-                            task.status === 'Selesai'
-                              ? 'bg-emerald-100 dark:bg-emerald-950 border-emerald-300 text-emerald-700 dark:text-emerald-300'
-                              : task.status === 'Proses'
-                              ? 'bg-amber-100 dark:bg-amber-950 border-amber-300 text-amber-700 dark:text-amber-300'
-                              : 'bg-slate-100 dark:bg-gray-800 border-slate-300 dark:border-gray-700 text-slate-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {task.status}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleToggleTaskStatus(selectedCourse.id, task.id)}
+                            className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all border ${
+                              task.status === 'Selesai'
+                                ? 'bg-emerald-100 dark:bg-emerald-950 border-emerald-300 text-emerald-700 dark:text-emerald-300'
+                                : task.status === 'Proses'
+                                ? 'bg-amber-100 dark:bg-amber-950 border-amber-300 text-amber-700 dark:text-amber-300'
+                                : 'bg-slate-100 dark:bg-gray-800 border-slate-300 dark:border-gray-700 text-slate-700 dark:text-gray-300'
+                            }`}
+                          >
+                            {task.status}
+                          </button>
+                          {isLoggedInAdmin && (
+                            <button
+                              onClick={() => handleDeleteTask(selectedCourse.id, task.id)}
+                              className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors"
+                              title="Hapus Tugas"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
@@ -909,18 +969,24 @@ function MainApp() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-sm">Daftar Pembagian Kelompok</h3>
-                  <button
-                    onClick={() => setShowAddGroupModal(true)}
-                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition-colors shadow-xs"
-                  >
-                    <Plus className="w-4 h-4" /> Tambah Kelompok
-                  </button>
+                  {isLoggedInAdmin ? (
+                    <button
+                      onClick={() => setShowAddGroupModal(true)}
+                      className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition-colors shadow-xs"
+                    >
+                      <Plus className="w-4 h-4" /> Tambah Kelompok
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-amber-500" /> Khusus Admin Kosma
+                    </span>
+                  )}
                 </div>
 
                 {!(selectedCourse.groups && selectedCourse.groups.length > 0) ? (
                   <div className={`p-8 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
                     <Users className="w-8 h-8 text-purple-500 mx-auto mb-2 opacity-50" />
-                    <p className="text-xs font-semibold text-slate-500 dark:text-gray-400">Pembagian kelompok belum diisi oleh PJ Matkul.</p>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-gray-400">Pembagian kelompok belum diisi oleh Kosma.</p>
                   </div>
                 ) : (
                   selectedCourse.groups.map((group, idx) => (
@@ -930,11 +996,22 @@ function MainApp() {
                     >
                       <div className="flex items-center justify-between">
                         <h4 className="font-bold text-sm text-emerald-600 dark:text-emerald-400">{group.name}</h4>
-                        {group.topic && (
-                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400">
-                            {group.topic}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {group.topic && (
+                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400">
+                              {group.topic}
+                            </span>
+                          )}
+                          {isLoggedInAdmin && (
+                            <button
+                              onClick={() => handleDeleteGroup(selectedCourse.id, idx)}
+                              className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors"
+                              title="Hapus Kelompok"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {(group.members || []).map((member, mIdx) => (
