@@ -74,6 +74,8 @@ const mergeWithDefaults = (savedCourses: any[]): Course[] => {
       groups: finalGroups,
       syllabusPdfs: cleanPdfs,
       syllabusPdfUrl: saved.syllabusPdfUrl || initial.syllabusPdfUrl,
+      syllabusDriveUrl: saved.syllabusDriveUrl || initial.syllabusDriveUrl,
+      driveFolderUrl: saved.driveFolderUrl || initial.driveFolderUrl,
       pdfFileName: saved.pdfFileName || initial.pdfFileName,
       guidelineSections: initial.guidelineSections || saved.guidelineSections,
     };
@@ -356,7 +358,15 @@ function MainApp() {
   const [activeDriveDoc, setActiveDriveDoc] = useState<{ title: string; embedUrl: string; rawUrl: string } | null>(null);
 
   // Modal to Link Google Drive File (For Kosma Admin)
-  const [showLinkDriveModal, setShowLinkDriveModal] = useState<{ courseId: string; groupIndex?: number; taskId?: string; title: string; currentUrl?: string } | null>(null);
+  const [showLinkDriveModal, setShowLinkDriveModal] = useState<{ 
+    courseId: string; 
+    groupIndex?: number; 
+    taskId?: string; 
+    isSyllabus?: boolean;
+    isCourseFolder?: boolean;
+    title: string; 
+    currentUrl?: string 
+  } | null>(null);
   const [driveInputUrl, setDriveInputUrl] = useState('');
 
   // Helper to convert any Google Drive sharing link into an in-app embed preview URL
@@ -383,13 +393,17 @@ function MainApp() {
 
   const handleSaveDriveLink = () => {
     if (!showLinkDriveModal) return;
-    const { courseId, groupIndex, taskId } = showLinkDriveModal;
+    const { courseId, groupIndex, taskId, isSyllabus, isCourseFolder } = showLinkDriveModal;
     const url = driveInputUrl.trim();
 
     setCourses(prev => {
       const updated = prev.map(c => {
         if (c.id === courseId) {
-          if (groupIndex !== undefined) {
+          if (isSyllabus) {
+            return { ...c, syllabusDriveUrl: url || undefined };
+          } else if (isCourseFolder) {
+            return { ...c, driveFolderUrl: url || undefined };
+          } else if (groupIndex !== undefined) {
             const updatedGroups = [...(c.groups || [])];
             if (updatedGroups[groupIndex]) {
               updatedGroups[groupIndex] = { ...updatedGroups[groupIndex], driveUrl: url || undefined };
@@ -409,7 +423,7 @@ function MainApp() {
 
     setShowLinkDriveModal(null);
     setDriveInputUrl('');
-    alert('Link Google Drive berkas berhasil disimpan dan langsung terhubung di web portal!');
+    alert('Link Google Drive berhasil disimpan dan langsung terhubung di web portal!');
   };
 
   const handleOpenPdfFullscreen = (pdf: SyllabusFile) => {
@@ -885,6 +899,84 @@ function MainApp() {
                     </span>
                     <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />
                   </button>
+                </div>
+
+                {/* GOOGLE DRIVE SILABUS & DOKUMEN MATKUL */}
+                <div className={`p-4 rounded-2xl border transition-all ${
+                  darkMode ? 'bg-blue-950/20 border-blue-900/50' : 'bg-blue-50/60 border-blue-200/80'
+                } space-y-3`}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                        📁
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-xs text-blue-950 dark:text-blue-200">
+                          Berkas Silabus & Materi (Google Drive Mahasiswa)
+                        </h4>
+                        <p className="text-[11px] text-blue-700 dark:text-blue-300">
+                          {selectedCourse.syllabusDriveUrl
+                            ? '✅ Tautan Silabus Google Drive Aktif'
+                            : 'Unggah file silabus ke Google Drive lalu tautkan linknya di sini.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {selectedCourse.syllabusDriveUrl && (
+                        <button
+                          onClick={() => handleOpenDriveDoc(`Silabus & RPS ${selectedCourse.code}`, selectedCourse.syllabusDriveUrl!)}
+                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>📖 Buka Silabus (In-App)</span>
+                        </button>
+                      )}
+
+                      {selectedCourse.driveFolderUrl && (
+                        <button
+                          onClick={() => handleOpenDriveDoc(`Folder Materi ${selectedCourse.code}`, selectedCourse.driveFolderUrl!)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 dark:bg-gray-800 dark:hover:bg-gray-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
+                        >
+                          <span>📂 Buka Folder Matkul</span>
+                        </button>
+                      )}
+
+                      {isLoggedInAdmin && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => {
+                              setShowLinkDriveModal({
+                                courseId: selectedCourse.id,
+                                isSyllabus: true,
+                                title: `Silabus / RPS ${selectedCourse.code}`,
+                                currentUrl: selectedCourse.syllabusDriveUrl || ''
+                              });
+                              setDriveInputUrl(selectedCourse.syllabusDriveUrl || '');
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-blue-500/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950 flex items-center gap-1 transition-all"
+                          >
+                            <span>🔗 {selectedCourse.syllabusDriveUrl ? 'Ganti Link Silabus' : '+ Tautkan Silabus Drive'}</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setShowLinkDriveModal({
+                                courseId: selectedCourse.id,
+                                isCourseFolder: true,
+                                title: `Folder Drive Materi ${selectedCourse.code}`,
+                                currentUrl: selectedCourse.driveFolderUrl || ''
+                              });
+                              setDriveInputUrl(selectedCourse.driveFolderUrl || '');
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-slate-400/60 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 flex items-center gap-1 transition-all"
+                          >
+                            <span>📁 {selectedCourse.driveFolderUrl ? 'Ganti Folder' : '+ Tautkan Folder Matkul'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* PDF PREVIEW & DOWNLOAD SECTION (MOBILE OPTIMIZED) */}
@@ -2975,28 +3067,35 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
           <div className={`w-full max-w-md p-5 rounded-3xl border shadow-xl ${darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} space-y-4`}>
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-3">
               <h3 className="font-bold text-sm flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                <FileText className="w-4 h-4" /> Tautkan Makalah / PPT (Google Drive)
+                <FileText className="w-4 h-4" /> 
+                {showLinkDriveModal.isSyllabus 
+                  ? 'Tautkan Silabus / RPS (Google Drive)' 
+                  : showLinkDriveModal.isCourseFolder 
+                    ? 'Tautkan Folder Materi (Google Drive)' 
+                    : 'Tautkan Berkas Makalah / PPT (Google Drive)'}
               </h3>
               <button onClick={() => setShowLinkDriveModal(null)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
 
             <div className="space-y-3">
               <div>
-                <span className="text-xs font-semibold text-slate-500 dark:text-gray-400 block">Sasaran Penugasan:</span>
+                <span className="text-xs font-semibold text-slate-500 dark:text-gray-400 block">Sasaran:</span>
                 <p className="font-extrabold text-sm text-slate-800 dark:text-gray-100">{showLinkDriveModal.title}</p>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold">Link Berkas Google Drive:</label>
+                <label className="text-xs font-bold">
+                  {showLinkDriveModal.isCourseFolder ? 'Link Folder Google Drive:' : 'Link Berkas Google Drive:'}
+                </label>
                 <input
                   type="url"
-                  placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+                  placeholder={showLinkDriveModal.isCourseFolder ? "https://drive.google.com/drive/folders/..." : "https://drive.google.com/file/d/.../view?usp=sharing"}
                   value={driveInputUrl}
                   onChange={(e) => setDriveInputUrl(e.target.value)}
                   className={`w-full p-3 text-xs rounded-xl border outline-none font-mono ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                 />
                 <p className="text-[11px] text-slate-500 dark:text-gray-400 pt-1">
-                  💡 <em>Petunjuk: Salin link berbagi berkas dari Google Drive Anda (pastikan akses disetel 'Siapa saja yang memiliki link'). Web akan otomatis menampilkannya langsung di dalam aplikasi tanpa membuka tab Google Drive.</em>
+                  💡 <em>Petunjuk: Salin link berbagi berkas/folder dari Google Drive Mahasiswa (pastikan akses 'Siapa saja yang memiliki tautan' / Anyone with the link). Berkas akan dibuka langsung di dalam web portal!</em>
                 </p>
               </div>
             </div>

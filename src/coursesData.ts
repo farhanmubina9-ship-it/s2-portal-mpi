@@ -25,6 +25,8 @@ export interface Course {
   };
   syllabusSummary: string;
   syllabusPdfUrl?: string;
+  syllabusDriveUrl?: string;
+  driveFolderUrl?: string;
   pdfFileName?: string;
   syllabusPdfs?: SyllabusFile[];
   pjName?: string;
