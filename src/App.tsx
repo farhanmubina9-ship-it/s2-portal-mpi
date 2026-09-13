@@ -362,7 +362,7 @@ function MainApp() {
   const [fullscreenPdf, setFullscreenPdf] = useState<SyllabusFile | null>(null);
 
   // In-App Google Drive Modal Viewer State
-  const [activeDriveDoc, setActiveDriveDoc] = useState<{ title: string; embedUrl: string; rawUrl: string } | null>(null);
+  const [activeDriveDoc, setActiveDriveDoc] = useState<{ title: string; embedUrl: string; rawUrl: string; downloadUrl?: string } | null>(null);
 
   // Modal to Link Google Drive File (For Kosma Admin)
   const [showLinkDriveModal, setShowLinkDriveModal] = useState<{ 
@@ -376,26 +376,33 @@ function MainApp() {
   } | null>(null);
   const [driveInputUrl, setDriveInputUrl] = useState('');
 
-  // Helper to convert any Google Drive sharing link into an in-app embed preview URL
-  const convertToDriveEmbedUrl = (url: string): string => {
-    if (!url) return '';
+  // Helper to convert any Google Drive sharing link into an in-app embed preview URL & direct download URL
+  const convertToDriveEmbedUrl = (url: string): { embedUrl: string; downloadUrl?: string } => {
+    if (!url) return { embedUrl: '' };
     const clean = url.trim();
     // Match file ID: /file/d/{id} or id={id}
     const fileMatch = clean.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || clean.match(/id=([a-zA-Z0-9_-]+)/);
     if (fileMatch && fileMatch[1]) {
-      return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
+      const fileId = fileMatch[1];
+      return {
+        embedUrl: `https://drive.google.com/file/d/${fileId}/preview`,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`
+      };
     }
     // Match folder ID: /drive/folders/{id}
     const folderMatch = clean.match(/\/drive\/folders\/([a-zA-Z0-9_-]+)/);
     if (folderMatch && folderMatch[1]) {
-      return `https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`;
+      return {
+        embedUrl: `https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`,
+        downloadUrl: clean
+      };
     }
-    return clean;
+    return { embedUrl: clean, downloadUrl: clean };
   };
 
   const handleOpenDriveDoc = (title: string, rawUrl: string) => {
-    const embedUrl = convertToDriveEmbedUrl(rawUrl);
-    setActiveDriveDoc({ title, embedUrl, rawUrl });
+    const { embedUrl, downloadUrl } = convertToDriveEmbedUrl(rawUrl);
+    setActiveDriveDoc({ title, embedUrl, rawUrl, downloadUrl });
   };
 
   const handleSaveDriveLink = () => {
@@ -3103,6 +3110,17 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              {activeDriveDoc.downloadUrl && (
+                <a
+                  href={activeDriveDoc.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 sm:px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-xs active:scale-[0.98]"
+                  title="Unduh dokumen langsung ke perangkat"
+                >
+                  <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Unduh Dokumen</span>
+                </a>
+              )}
               <a
                 href={activeDriveDoc.rawUrl}
                 target="_blank"
