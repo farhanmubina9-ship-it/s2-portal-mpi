@@ -57,11 +57,19 @@ const mergeWithDefaults = (savedCourses: any[]): Course[] => {
       };
     });
 
+    // Merge initial official tasks (Jurnal, UAS, Proyek) with any user-saved tasks
+    const officialTasks = initial.tasks || [];
+    const userCustomTasks = cleanTasks.filter((ct: any) => !officialTasks.some(ot => ot.id === ct.id));
+    const mergedTasks = [...officialTasks, ...userCustomTasks].map(t => {
+      const savedTaskMatch = cleanTasks.find((st: any) => st.id === t.id);
+      return savedTaskMatch ? { ...t, status: savedTaskMatch.status } : t;
+    });
+
     return {
       ...initial,
       ...saved,
       colorTheme: { ...initial.colorTheme, ...(saved.colorTheme || {}) },
-      tasks: cleanTasks,
+      tasks: mergedTasks,
       groups: finalGroups,
       syllabusPdfs: cleanPdfs,
       syllabusPdfUrl: saved.syllabusPdfUrl || initial.syllabusPdfUrl,
@@ -145,10 +153,12 @@ function MainApp() {
   const [groupSearchQuery, setGroupSearchQuery] = useState<string>('');
 
   // Agenda & Calendar Filters for Semua Tugas Tab
+  const [agendaFilterCourse, setAgendaFilterCourse] = useState<string>('all');
   const [agendaFilterDay, setAgendaFilterDay] = useState<'all' | 'Jumat' | 'Sabtu'>('all');
   const [agendaFilterStatus, setAgendaFilterStatus] = useState<'all' | 'Belum' | 'Selesai'>('all');
   const [agendaSearchQuery, setAgendaSearchQuery] = useState<string>('');
-  const [tugasSubTab, setTugasSubTab] = useState<'agenda' | 'tugas'>('agenda');
+  const [tugasSubTab, setTugasSubTab] = useState<'tugas' | 'agenda'>('tugas');
+  const [taskFilterCategory, setTaskFilterCategory] = useState<'all' | 'Jurnal' | 'UAS' | 'Proyek'>('all');
 
   // ADMIN AUTH & ROLE SYSTEM
   const [adminPIN, setAdminPIN] = useState<string>('');
@@ -367,7 +377,7 @@ function MainApp() {
 
   // Filter Tasks Safely
   const allTasks = courses.flatMap(c => 
-    (c.tasks || []).map(t => ({ ...t, courseName: c.name, courseCode: c.code, courseTheme: c.colorTheme }))
+    (c.tasks || []).map(t => ({ ...t, courseId: c.id, courseName: c.name, courseCode: c.code, courseTheme: c.colorTheme }))
   );
 
   // Construct unified presentations & agendas across all courses for calendar synchronization
@@ -1397,6 +1407,16 @@ function MainApp() {
                                       <Paperclip className="w-2.5 h-2.5" /> {pdfs.length} PDF
                                     </span>
                                   )}
+                                  {(course.groups || []).length > 0 && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-600 text-white flex items-center gap-0.5">
+                                      <Users className="w-2.5 h-2.5" /> {(course.groups || []).length} Klp
+                                    </span>
+                                  )}
+                                  {(course.tasks || []).length > 0 && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-600 text-white flex items-center gap-0.5">
+                                      <FileText className="w-2.5 h-2.5" /> {(course.tasks || []).length} Tugas
+                                    </span>
+                                  )}
                                 </div>
                                 <ChevronRight className="w-4 h-4 opacity-70 shrink-0" />
                               </div>
@@ -1462,8 +1482,18 @@ function MainApp() {
                                     {course.code}
                                   </span>
                                   {pdfs.length > 0 && (
-                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-600 text-white flex items-center gap-0.5">
-                                      <Paperclip className="w-2.5 h-2.5" /> {pdfs.length} PDF
+                                     <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-600 text-white flex items-center gap-0.5">
+                                       <Paperclip className="w-2.5 h-2.5" /> {pdfs.length} PDF
+                                     </span>
+                                  )}
+                                  {(course.groups || []).length > 0 && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-600 text-white flex items-center gap-0.5">
+                                      <Users className="w-2.5 h-2.5" /> {(course.groups || []).length} Klp
+                                    </span>
+                                  )}
+                                  {(course.tasks || []).length > 0 && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-600 text-white flex items-center gap-0.5">
+                                      <FileText className="w-2.5 h-2.5" /> {(course.tasks || []).length} Tugas
                                     </span>
                                   )}
                                 </div>
@@ -1499,6 +1529,7 @@ function MainApp() {
               const completedCount = allAgendas.filter(a => a.status === 'Selesai').length;
 
               const filteredAgendas = allAgendas.filter(agenda => {
+                if (agendaFilterCourse !== 'all' && agenda.courseId !== agendaFilterCourse) return false;
                 if (agendaFilterDay !== 'all' && agenda.day !== agendaFilterDay) return false;
                 if (agendaFilterStatus === 'Belum' && agenda.status === 'Selesai') return false;
                 if (agendaFilterStatus === 'Selesai' && agenda.status !== 'Selesai') return false;
@@ -1522,20 +1553,32 @@ function MainApp() {
                         </div>
                         <div>
                           <span className="text-[10px] font-extrabold tracking-wider uppercase px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
-                            Sinkronisasi Kalender & Tugas
+                            Pusat Tugas & Agenda Kuliah
                           </span>
                           <h2 className="text-base sm:text-lg font-extrabold mt-1 text-slate-800 dark:text-white">
-                            Agenda Presentasi & Tugas Perkuliahan
+                            Tugas Besar (Jurnal & UAS) & Agenda Presentasi
                           </h2>
                           <p className="text-xs text-slate-600 dark:text-gray-300 mt-0.5 leading-relaxed">
-                            Jadwal mingguan mata kuliah, topik materi, kelompok presenter, dan tombol kendali Kosma untuk menandai status selesai.
+                            Keterangan resmi penulisan artikel jurnal ilmiah, tugas proyek akhir semester (UAS), dan timeline giliran presentasi kelompok per mata kuliah.
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Sub-Tab Selector: Agenda Presentasi vs Tugas Mandiri */}
+                    {/* Sub-Tab Selector: Tugas Jurnal & UAS vs Agenda Presentasi */}
                     <div className="mt-4 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/60 flex items-center gap-2 overflow-x-auto">
+                      <button
+                        onClick={() => setTugasSubTab('tugas')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                          tugasSubTab === 'tugas'
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'bg-white/80 dark:bg-gray-800/80 text-slate-600 dark:text-gray-400 hover:text-purple-600'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Tugas Utama: Jurnal, Proyek & UAS ({allTasks.length})</span>
+                      </button>
+
                       <button
                         onClick={() => setTugasSubTab('agenda')}
                         className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
@@ -1545,24 +1588,12 @@ function MainApp() {
                         }`}
                       >
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>Timeline Presentasi ({allAgendas.length})</span>
+                        <span>Agenda Presentasi Kelompok ({allAgendas.length})</span>
                         {pendingCount > 0 && (
                           <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[10px] rounded-full">
                             {pendingCount}
                           </span>
                         )}
-                      </button>
-
-                      <button
-                        onClick={() => setTugasSubTab('tugas')}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                          tugasSubTab === 'tugas'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-white/80 dark:bg-gray-800/80 text-slate-600 dark:text-gray-400 hover:text-emerald-600'
-                        }`}
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Tugas Khusus ({allTasks.length})</span>
                       </button>
                     </div>
                   </div>
@@ -1590,7 +1621,53 @@ function MainApp() {
                         )}
                       </div>
 
-                      {/* Filter Bar: Hari & Status */}
+                      {/* Filter Bar 1: Pilih Mata Kuliah (Pills Filter) */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500">
+                          Filter Berdasarkan Mata Kuliah:
+                        </span>
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold scrollbar-thin">
+                          <button
+                            onClick={() => setAgendaFilterCourse('all')}
+                            className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap border ${
+                              agendaFilterCourse === 'all'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                : 'bg-slate-100 dark:bg-gray-800 border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-300 hover:border-emerald-400'
+                            }`}
+                          >
+                            Semua Matkul ({allAgendas.length})
+                          </button>
+                          {courses.map(c => {
+                            const count = allAgendas.filter(a => a.courseId === c.id).length;
+                            if (count === 0) return null;
+                            const isSelected = agendaFilterCourse === c.id;
+                            return (
+                              <button
+                                key={c.id}
+                                onClick={() => setAgendaFilterCourse(c.id)}
+                                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap border flex items-center gap-1.5 ${
+                                  isSelected
+                                    ? 'shadow-xs font-extrabold text-white'
+                                    : 'bg-slate-100 dark:bg-gray-800 border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-300 hover:border-emerald-400'
+                                }`}
+                                style={{
+                                  backgroundColor: isSelected ? c.colorTheme.accent : undefined,
+                                  borderColor: isSelected ? c.colorTheme.accent : undefined,
+                                }}
+                              >
+                                <span>{c.code}</span>
+                                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                                  isSelected ? 'bg-white/30 text-white' : 'bg-slate-200 dark:bg-gray-700 text-slate-700 dark:text-gray-300'
+                                }`}>
+                                  {count}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Filter Bar 2: Hari & Status */}
                       <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
                         {/* Day Filter */}
                         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-gray-800/80 border border-slate-200/80 dark:border-gray-700/80 font-bold overflow-x-auto">
@@ -1612,7 +1689,7 @@ function MainApp() {
                                 : 'text-slate-600 dark:text-gray-400'
                             }`}
                           >
-                            Jumat ({allAgendas.filter(a => a.day === 'Jumat').length})
+                            Jumat ({allAgendas.filter(a => (agendaFilterCourse === 'all' || a.courseId === agendaFilterCourse) && a.day === 'Jumat').length})
                           </button>
                           <button
                             onClick={() => setAgendaFilterDay('Sabtu')}
@@ -1622,7 +1699,7 @@ function MainApp() {
                                 : 'text-slate-600 dark:text-gray-400'
                             }`}
                           >
-                            Sabtu ({allAgendas.filter(a => a.day === 'Sabtu').length})
+                            Sabtu ({allAgendas.filter(a => (agendaFilterCourse === 'all' || a.courseId === agendaFilterCourse) && a.day === 'Sabtu').length})
                           </button>
                         </div>
 
@@ -1817,62 +1894,181 @@ function MainApp() {
                     </div>
                   )}
 
-                  {/* CONTENT SUB-TAB 2: TUGAS MANDIRI / KHUSUS */}
-                  {tugasSubTab === 'tugas' && (
-                    <div className="space-y-3">
-                      {allTasks.length === 0 ? (
-                        <div className={`p-8 sm:p-10 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
-                          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-50" />
-                          <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-gray-400">
-                            Tidak ada tugas mandiri khusus. Seluruh agenda perkuliahan berfokus pada presentasi makalah dan penulisan artikel di tab Timeline Presentasi.
-                          </p>
-                        </div>
-                      ) : (
-                        allTasks.map(task => (
-                          <div 
-                            key={task.id}
-                            className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
-                              darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'
+                  {/* CONTENT SUB-TAB 2: TUGAS UTAMA (JURNAL, UAS & PROYEK) */}
+                  {tugasSubTab === 'tugas' && (() => {
+                    const filteredTasks = allTasks.filter(task => {
+                      if (taskFilterCategory !== 'all') {
+                        if (taskFilterCategory === 'Jurnal' && task.category !== 'Jurnal' && !task.title.toLowerCase().includes('jurnal') && !task.title.toLowerCase().includes('artikel')) return false;
+                        if (taskFilterCategory === 'UAS' && task.category !== 'UAS' && !task.title.toLowerCase().includes('uas')) return false;
+                        if (taskFilterCategory === 'Proyek' && task.category !== 'Proyek' && !task.title.toLowerCase().includes('proyek') && !task.title.toLowerCase().includes('renstra')) return false;
+                      }
+                      return true;
+                    });
+
+                    const jurnalCount = allTasks.filter(t => t.category === 'Jurnal' || t.title.toLowerCase().includes('jurnal') || t.title.toLowerCase().includes('artikel')).length;
+                    const uasCount = allTasks.filter(t => t.category === 'UAS' || t.title.toLowerCase().includes('uas')).length;
+                    const proyekCount = allTasks.filter(t => t.category === 'Proyek' || t.title.toLowerCase().includes('proyek') || t.title.toLowerCase().includes('renstra')).length;
+
+                    return (
+                      <div className="space-y-3.5">
+                        {/* Task Category Quick Filter Pills */}
+                        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-gray-800/80 border border-slate-200/80 dark:border-gray-700/80 font-bold overflow-x-auto text-xs">
+                          <button
+                            onClick={() => setTaskFilterCategory('all')}
+                            className={`px-3 py-1.5 rounded-lg transition-all ${
+                              taskFilterCategory === 'all'
+                                ? 'bg-purple-600 text-white shadow-xs'
+                                : 'text-slate-600 dark:text-gray-400'
                             }`}
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                                  {task.courseCode} - {task.courseName}
-                                </span>
-                                <h4 className="font-bold text-sm mt-1.5">{task.title}</h4>
-                                <p className="text-xs text-slate-600 dark:text-gray-400 mt-1 leading-relaxed">{task.description}</p>
-                                
-                                <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-gray-400 mt-2">
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    Deadline: {new Date(task.deadline).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
-                                  </span>
-                                  <span className="font-bold text-purple-600 dark:text-purple-400">[{task.type}]</span>
-                                </div>
-                              </div>
+                            Semua Tugas ({allTasks.length})
+                          </button>
+                          <button
+                            onClick={() => setTaskFilterCategory('Jurnal')}
+                            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                              taskFilterCategory === 'Jurnal'
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'text-indigo-600 dark:text-indigo-400'
+                            }`}
+                          >
+                            <span>✍️ Penulisan Jurnal</span>
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/30 text-current">
+                              {jurnalCount}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setTaskFilterCategory('UAS')}
+                            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                              taskFilterCategory === 'UAS'
+                                ? 'bg-rose-600 text-white shadow-xs'
+                                : 'text-rose-600 dark:text-rose-400'
+                            }`}
+                          >
+                            <span>🎓 Tugas Akhir / UAS</span>
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/30 text-current">
+                              {uasCount}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setTaskFilterCategory('Proyek')}
+                            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                              taskFilterCategory === 'Proyek'
+                                ? 'bg-amber-600 text-white shadow-xs'
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            <span>📊 Proyek (Renstra/Mutu)</span>
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/30 text-current">
+                              {proyekCount}
+                            </span>
+                          </button>
+                        </div>
 
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className={`px-2 py-0.5 text-[10px] sm:text-[11px] font-extrabold rounded-lg ${
-                                  task.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                }`}>
-                                  {task.status}
-                                </span>
-                                {isLoggedInAdmin && (
-                                  <button
-                                    onClick={() => handleToggleTaskStatus(task.id.split('-')[0], task.id)}
-                                    className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 dark:bg-gray-800 text-slate-700 dark:text-gray-300"
-                                  >
-                                    Ubah
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                        {/* Task List */}
+                        {filteredTasks.length === 0 ? (
+                          <div className={`p-8 sm:p-10 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
+                            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-50" />
+                            <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-gray-400">
+                              Tidak ada tugas dalam kategori ini.
+                            </p>
                           </div>
-                        ))
-                      )}
-                    </div>
-                  )}
+                        ) : (
+                          <div className="space-y-3">
+                            {filteredTasks.map(task => {
+                              const isJurnal = task.category === 'Jurnal' || task.title.toLowerCase().includes('jurnal') || task.title.toLowerCase().includes('artikel');
+                              const isUas = task.category === 'UAS' || task.title.toLowerCase().includes('uas');
+                              const isProyek = task.category === 'Proyek' || task.title.toLowerCase().includes('proyek') || task.title.toLowerCase().includes('renstra');
+
+                              return (
+                                <div 
+                                  key={task.id}
+                                  className={`p-4 rounded-2xl border transition-all shadow-xs ${
+                                    darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-1.5 flex-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span 
+                                          className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase border"
+                                          style={{
+                                            backgroundColor: darkMode ? task.courseTheme.darkBg : task.courseTheme.bgLight,
+                                            borderColor: darkMode ? task.courseTheme.darkBorder : task.courseTheme.borderLight,
+                                            color: darkMode ? task.courseTheme.darkText : task.courseTheme.textLight,
+                                          }}
+                                        >
+                                          {task.courseCode} • {task.courseName}
+                                        </span>
+
+                                        {isJurnal && (
+                                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                                            <span>✍️ ARTIKEL JURNAL</span>
+                                          </span>
+                                        )}
+                                        {isUas && (
+                                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1">
+                                            <span>🎓 TUGAS AKHIR / UAS</span>
+                                          </span>
+                                        )}
+                                        {isProyek && !isJurnal && !isUas && (
+                                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                                            <span>📊 DOKUMEN PROYEK</span>
+                                          </span>
+                                        )}
+                                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-300">
+                                          {task.type}
+                                        </span>
+                                      </div>
+
+                                      <h4 className="font-extrabold text-sm sm:text-base leading-snug">{task.title}</h4>
+                                      <p className="text-xs text-slate-600 dark:text-gray-300 leading-relaxed">{task.description}</p>
+                                      
+                                      <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500 dark:text-gray-400 pt-1">
+                                        <span className="flex items-center gap-1 text-slate-700 dark:text-gray-300 font-semibold">
+                                          <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                                          Batas Akhir: {new Date(task.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Status Badge & Kosma Action */}
+                                    <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
+                                      <span className={`px-2.5 py-1 text-xs font-extrabold rounded-xl border flex items-center gap-1 ${
+                                        task.status === 'Selesai' 
+                                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' 
+                                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                                      }`}>
+                                        {task.status === 'Selesai' ? (
+                                          <>
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                            <span>Selesai</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Clock className="w-3 h-3 text-amber-600" />
+                                            <span>Proses / Belum</span>
+                                          </>
+                                        )}
+                                      </span>
+
+                                      {isLoggedInAdmin && (
+                                        <button
+                                          onClick={() => handleToggleTaskStatus(task.courseId || task.id.split('-')[0], task.id)}
+                                          className="px-3 py-1 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-200 border border-slate-300 dark:border-gray-600 transition-all"
+                                        >
+                                          Ganti Status
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
@@ -2303,11 +2499,11 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                 : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-800'
             }`}
           >
-            <Calendar className="w-3.5 h-3.5" />
-            Agenda & Tugas
-            {(allAgendas.length > 0 || allTasks.length > 0) && (
-              <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-full font-bold">
-                {allAgendas.filter(a => a.status !== 'Selesai').length > 0 ? allAgendas.filter(a => a.status !== 'Selesai').length : allAgendas.length}
+            <FileText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            <span>Tugas & Agenda</span>
+            {allTasks.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 rounded-full font-bold">
+                {allTasks.length}
               </span>
             )}
           </button>

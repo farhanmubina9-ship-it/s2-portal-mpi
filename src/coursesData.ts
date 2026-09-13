@@ -40,6 +40,7 @@ export interface Task {
   description: string;
   deadline: string;
   type: 'Individu' | 'Kelompok';
+  category?: 'Jurnal' | 'UAS' | 'Proyek' | 'Tugas';
   status: 'Belum' | 'Proses' | 'Selesai';
 }
 
@@ -180,7 +181,17 @@ export const INITIAL_COURSES: Course[] = [
         url: '/syllabus/RPS_HMPI_Hadis_Manajemen.pdf'
       }
     ],
-    tasks: [],
+    tasks: [
+      {
+        id: 'hmpi-task-uas',
+        title: 'Tugas UAS: Makalah Integratif Hadis Manajemen & Kajian Takhrij',
+        description: 'Penyusunan naskah komprehensif mengintegrasikan kajian takhrij, syarah hadis mu\'tabar, tafsir bil ayat, dan implikasinya terhadap tata kelola lembaga pendidikan Islam kontemporer sesuai sistematika baku.',
+        deadline: '2026-06-30T23:59',
+        type: 'Individu',
+        category: 'UAS',
+        status: 'Belum'
+      }
+    ],
     groups: [],
     guidelineSections: [
       {
@@ -227,7 +238,26 @@ export const INITIAL_COURSES: Course[] = [
         url: '/syllabus/RPS_FMPI_Filsafat_Manajemen.pdf'
       }
     ],
-    tasks: [],
+    tasks: [
+      {
+        id: 'fmpi-task-jurnal',
+        title: 'Tugas Pembuatan Artikel Jurnal Filsafat MPI (7 Kelompok Jurnal)',
+        description: 'Penulisan artikel ilmiah berbasis riset literatur filosofis (Ontologi, Epistemologi, Aksiologi) dalam tata kelola lembaga pendidikan Islam era 5.0, format 4 paragraf pendahuluan dan template jurnal.',
+        deadline: '2026-06-20T23:59',
+        type: 'Kelompok',
+        category: 'Jurnal',
+        status: 'Belum'
+      },
+      {
+        id: 'fmpi-task-uas',
+        title: 'Tugas Akhir Semester (UAS): Portofolio Kajian Kritis Filsafat MPI',
+        description: 'Penyusunan laporan komprehensif dan responsi arah paradigma keilmuan Prodi Manajemen Pendidikan Islam berlandaskan Wahyu Memandu Ilmu (WMI).',
+        deadline: '2026-06-30T23:59',
+        type: 'Individu',
+        category: 'UAS',
+        status: 'Belum'
+      }
+    ],
     groups: [
       // KELOMPOK PRESENTASI / DISKUSI MAKALAH (13 KELOMPOK)
       {
@@ -357,7 +387,17 @@ export const INITIAL_COURSES: Course[] = [
     },
     syllabusSummary: 'Menganalisis isu-isu strategis, persoalan manajerial, mutu SDM, dan tata kelola sarana prasarana pada lembaga pendidikan Islam kontemporer.',
     syllabusPdfs: [],
-    tasks: [],
+    tasks: [
+      {
+        id: 'pmpi-task-uas',
+        title: 'Tugas UAS: Riset Kasus & Solusi Problematika Manajemen Pendidikan Islam',
+        description: 'Penyusunan naskah analisis problem empiris di madrasah/pesantren/PTKI disertai rekomendasi solusi strategis manajerial yang aplikatif.',
+        deadline: '2026-06-30T23:59',
+        type: 'Individu',
+        category: 'UAS',
+        status: 'Belum'
+      }
+    ],
     groups: []
   },
   {
@@ -391,7 +431,26 @@ export const INITIAL_COURSES: Course[] = [
         url: '/syllabus/RPS_TMPI_Tafsir_Manajemen.pdf'
       }
     ],
-    tasks: [],
+    tasks: [
+      {
+        id: 'tmpi-task-jurnal-sinta3',
+        title: 'Tugas Utama: Publikasi Artikel Jurnal Bereputasi SINTA 3 (4 Kelompok)',
+        description: 'Penyusunan dan submit artikel ilmiah bereputasi nasional terakreditasi SINTA 3 berbasis 4 fokus Ulumul Qur\'an dalam Manajemen Pendidikan Islam (Kaidah \'Am-Khas, Asbabun Nuzul, Muhkam-Mutasyabih, atau Tafsir Maudlu\'i).',
+        deadline: '2026-06-25T23:59',
+        type: 'Kelompok',
+        category: 'Jurnal',
+        status: 'Belum'
+      },
+      {
+        id: 'tmpi-task-uas',
+        title: 'Tugas UAS: Naskah Final & Bukti Submit / Letter of Acceptance (LoA) Jurnal',
+        description: 'Pengumpulan berkas artikel jurnal utuh beserta bukti pengiriman (submission receipt/LoA) dari jurnal sasaran SINTA 3.',
+        deadline: '2026-06-30T23:59',
+        type: 'Kelompok',
+        category: 'UAS',
+        status: 'Belum'
+      }
+    ],
     groups: [
       // KELOMPOK PRESENTASI / DISKUSI MAKALAH TMPI (12 KELOMPOK)
       {
@@ -548,7 +607,26 @@ export const INITIAL_COURSES: Course[] = [
         url: '/syllabus/RPS_PPI_Perencanaan_Pendidikan_Islam.pdf'
       }
     ],
-    tasks: [],
+    tasks: [
+      {
+        id: 'ppi-task-renstra-proyek',
+        title: 'Tugas Proyek Utama: Penyusunan Dokumen Renstra Lembaga Pendidikan Islam 7 BAB',
+        description: 'Penyusunan blueprint perencanaan strategis komprehensif 7 BAB (Pendahuluan, Analisis Kondisi, Renstra & KPI, Program Pengembangan, Pembiayaan RAB, Manajemen Risiko & Monev, Penutup) berbasis OBE.',
+        deadline: '2026-06-25T23:59',
+        type: 'Kelompok',
+        category: 'Proyek',
+        status: 'Belum'
+      },
+      {
+        id: 'ppi-task-uas',
+        title: 'Tugas UAS: Sidang & Evaluasi Kelayakan Dokumen Renstra Lembaga',
+        description: 'Ujian Akhir Semester berbasis pertanggungjawaban naskah Renstra dan pemaparan evaluasi kelayakan program pengembangan lembaga.',
+        deadline: '2026-06-30T23:59',
+        type: 'Individu',
+        category: 'UAS',
+        status: 'Belum'
+      }
+    ],
     groups: [
       { name: 'Topik 1', topic: 'Hakikat dan konsep perencanaan pendidikan', members: ['Nurlaela'] },
       { name: 'Topik 2', topic: 'Perencanaan dalam perspektif manajemen pendidikan Islam', members: ['Imam Amanullah'] },
@@ -620,7 +698,26 @@ export const INITIAL_COURSES: Course[] = [
         url: '/syllabus/RPS_MMTPI_Manajemen_Mutu_Terpadu.pdf'
       }
     ],
-    tasks: [],
+    tasks: [
+      {
+        id: 'mmtpi-task-audit-mutu',
+        title: 'Tugas Proyek: Studi Analisis Penjaminan Mutu & Alat TQM (Fishbone / SPMI)',
+        description: 'Penerapan alat bantu mutu (Diagram Tulang Ikan, Analisis Pareto, atau Pemetaan SPMI BAN-S/M) pada lembaga pendidikan Islam rujukan.',
+        deadline: '2026-06-25T23:59',
+        type: 'Kelompok',
+        category: 'Proyek',
+        status: 'Belum'
+      },
+      {
+        id: 'mmtpi-task-uas',
+        title: 'Tugas UAS: Laporan Evaluasi Implementasi Total Quality Management (TQM)',
+        description: 'Laporan komprehensif audit mutu internal dan rekomendasi strategi continuous quality improvement (CQI).',
+        deadline: '2026-06-30T23:59',
+        type: 'Individu',
+        category: 'UAS',
+        status: 'Belum'
+      }
+    ],
     groups: [
       {
         name: 'Kelompok 1',
@@ -697,7 +794,17 @@ export const INITIAL_COURSES: Course[] = [
     },
     syllabusSummary: 'Prinsip dasar pengorganisasian, tata laksana administrasi, supervisi pendidikan, dan kepemimpinan lembaga pendidikan Islam.',
     syllabusPdfs: [],
-    tasks: [],
+    tasks: [
+      {
+        id: 'dmpi-task-uas',
+        title: 'Tugas UAS: Makalah Integrasi Prinsip Dasar Manajemen Pendidikan Islam',
+        description: 'Penyusunan naskah kajian ilmiah mengenai penerapan fungsi-fungsi manajemen dasar (POAC) pada institusi pendidikan Islam formal/nonformal.',
+        deadline: '2026-06-30T23:59',
+        type: 'Individu',
+        category: 'UAS',
+        status: 'Belum'
+      }
+    ],
     groups: []
   }
 ];
