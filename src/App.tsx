@@ -2699,6 +2699,16 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
               <span>{isSyncedWithSupabase ? 'Cloud Sync' : 'Local'}</span>
             </span>
 
+            {/* Tombol Google Drive Kelas */}
+            <button
+              onClick={() => handleOpenDriveDoc('Google Drive S2 MPI (Folder Utama Kelas)', 'https://drive.google.com/drive/folders/16-G6JSl7_ozJaM2lrpHVLWYERkv2cW3d')}
+              className="px-2 py-1 rounded-xl border border-blue-500/40 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[11px] font-bold flex items-center gap-1 shrink-0 transition-all shadow-2xs"
+              title="Buka Google Drive Kelas S2 MPI (In-App)"
+            >
+              <span>📂</span>
+              <span className="hidden sm:inline">Drive Kelas</span>
+            </button>
+
             {/* Tombol KOSMA Admin */}
             <button
               onClick={() => setActiveTab('admin')}
