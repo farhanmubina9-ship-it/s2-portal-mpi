@@ -473,6 +473,7 @@ export const INITIAL_COURSES: Course[] = [
     },
     syllabusSummary: 'Prinsip dasar pengorganisasian, tata laksana administrasi, supervisi pendidikan, dan kepemimpinan lembaga pendidikan Islam.',
     driveFolderUrl: 'https://drive.google.com/drive/folders/1HzdfjQbpdkud8vsjLm0aMfaMJtPdnLdK',
+    syllabusDriveUrl: 'https://drive.google.com/file/d/1hG__Q8Tzgvs2QX-11MKFhqb7ek-RDRkr/view?usp=sharing',
     syllabusPdfs: [],
     tasks: [
       {

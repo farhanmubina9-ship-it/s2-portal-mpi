@@ -806,6 +806,10 @@ function MainApp() {
   };
 
   const handleToggleTaskStatus = (courseId: string, taskId: string) => {
+    if (!isLoggedInAdmin) {
+      alert('Akses Ditolak: Hanya Kosma yang dapat mengubah status tugas.');
+      return;
+    }
     setCourses(prev => {
       const updated = prev.map(c => {
         if (c.id === courseId) {
@@ -1061,13 +1065,14 @@ function MainApp() {
 
                     <div className="flex items-center gap-2 flex-wrap">
                       {selectedCourse.driveFolderUrl ? (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDriveDoc(`Folder Berkas ${selectedCourse.code}`, selectedCourse.driveFolderUrl!)}
+                        <a
+                          href={selectedCourse.driveFolderUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
                         >
-                          <span>📂 Buka Folder Berkas Matkul (In-App)</span>
-                        </button>
+                          <span>📂 Buka Folder Berkas Matkul ↗</span>
+                        </a>
                       ) : (
                         <span className="text-xs text-slate-400 italic">
                           Folder belum ditautkan
@@ -1358,18 +1363,33 @@ function MainApp() {
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleToggleTaskStatus(selectedCourse.id, task.id)}
-                            className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all border ${
-                              task.status === 'Selesai'
-                                ? 'bg-emerald-100 dark:bg-emerald-950 border-emerald-300 text-emerald-700 dark:text-emerald-300'
-                                : task.status === 'Proses'
-                                ? 'bg-amber-100 dark:bg-amber-950 border-amber-300 text-amber-700 dark:text-amber-300'
-                                : 'bg-slate-100 dark:bg-gray-800 border-slate-300 dark:border-gray-700 text-slate-700 dark:text-gray-300'
-                            }`}
-                          >
-                            {task.status}
-                          </button>
+                          {isLoggedInAdmin ? (
+                            <button
+                              onClick={() => handleToggleTaskStatus(selectedCourse.id, task.id)}
+                              className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all border ${
+                                task.status === 'Selesai'
+                                  ? 'bg-emerald-100 dark:bg-emerald-950 border-emerald-300 text-emerald-700 dark:text-emerald-300'
+                                  : task.status === 'Proses'
+                                  ? 'bg-amber-100 dark:bg-amber-950 border-amber-300 text-amber-700 dark:text-amber-300'
+                                  : 'bg-slate-100 dark:bg-gray-800 border-slate-300 dark:border-gray-700 text-slate-700 dark:text-gray-300'
+                              }`}
+                              title="Klik untuk ubah status tugas"
+                            >
+                              {task.status}
+                            </button>
+                          ) : (
+                            <span
+                              className={`px-2.5 py-1 rounded-xl text-xs font-extrabold border ${
+                                task.status === 'Selesai'
+                                  ? 'bg-emerald-100 dark:bg-emerald-950 border-emerald-300 text-emerald-700 dark:text-emerald-300'
+                                  : task.status === 'Proses'
+                                  ? 'bg-amber-100 dark:bg-amber-950 border-amber-300 text-amber-700 dark:text-amber-300'
+                                  : 'bg-slate-100 dark:bg-gray-800 border-slate-300 dark:border-gray-700 text-slate-700 dark:text-gray-300'
+                              }`}
+                            >
+                              {task.status}
+                            </span>
+                          )}
                           {isLoggedInAdmin && (
                             <button
                               onClick={() => handleDeleteTask(selectedCourse.id, task.id)}
