@@ -33,9 +33,12 @@ const mergeWithDefaults = (savedCourses: any[]): Course[] => {
     const cleanGroups = (Array.isArray(saved.groups) && !hasOldNicknames)
       ? saved.groups.filter((g: any) => g && !g.members?.includes('Ahmad') && !g.members?.includes('Fajar')) 
       : [];
-    const cleanPdfs = (Array.isArray(saved.syllabusPdfs) && saved.syllabusPdfs.length > 0) 
-      ? saved.syllabusPdfs 
-      : (initial.syllabusPdfs || []);
+    // Strip out all legacy pre-packaged /syllabus/... files so only newly linked Google Drive documents are shown
+    const cleanPdfs = (Array.isArray(saved.syllabusPdfs) ? saved.syllabusPdfs : [])
+      .filter((pdf: any) => pdf && pdf.url && !pdf.url.startsWith('/syllabus/'));
+    const cleanPdfUrl = (saved.syllabusPdfUrl && !saved.syllabusPdfUrl.startsWith('/syllabus/')) 
+      ? saved.syllabusPdfUrl 
+      : undefined;
 
     // Check if saved groups have outdated placeholder topics
     const hasGenericTopics = Array.isArray(saved.groups) && saved.groups.some((g: any) => 
@@ -73,10 +76,10 @@ const mergeWithDefaults = (savedCourses: any[]): Course[] => {
       tasks: mergedTasks,
       groups: finalGroups,
       syllabusPdfs: cleanPdfs,
-      syllabusPdfUrl: saved.syllabusPdfUrl || initial.syllabusPdfUrl,
+      syllabusPdfUrl: cleanPdfUrl,
       syllabusDriveUrl: saved.syllabusDriveUrl || initial.syllabusDriveUrl,
       driveFolderUrl: saved.driveFolderUrl || initial.driveFolderUrl,
-      pdfFileName: saved.pdfFileName || initial.pdfFileName,
+      pdfFileName: undefined,
       guidelineSections: initial.guidelineSections || saved.guidelineSections,
     };
   });

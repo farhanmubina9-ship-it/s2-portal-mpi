@@ -176,16 +176,8 @@ export const INITIAL_COURSES: Course[] = [
       accent: '#D97706',
     },
     syllabusSummary: 'Mengkaji dasar profetis ajaran Nabi SAW tentang Manusia, Perencanaan, Organizing, Actuating, Controlling, Kepemimpinan, Psikologi & Etika Organisasi. Memuat seminar makalah berbasis takhrij & syarah hadis.',
-    syllabusPdfUrl: '/syllabus/RPS_HMPI_Hadis_Manajemen.pdf',
     driveFolderUrl: 'https://drive.google.com/drive/folders/1mj_UXv6kjYZzBuIru8m0mkSMnKSzWFwF',
-    pdfFileName: 'RPS_Hadis_Manajemen_Pendidikan_Islam.pdf',
-    syllabusPdfs: [
-      {
-        id: 'pdf-hmpi-1',
-        name: 'RPS_Hadis_Manajemen_Pendidikan_Islam.pdf',
-        url: '/syllabus/RPS_HMPI_Hadis_Manajemen.pdf'
-      }
-    ],
+    syllabusPdfs: [],
     tasks: [
       {
         id: 'hmpi-task-uas',
@@ -234,16 +226,8 @@ export const INITIAL_COURSES: Course[] = [
       accent: '#E02424',
     },
     syllabusSummary: 'Menggali filsafat di balik ilmu pengetahuan, konsep dasar & sejarah pemikiran filosofis (Yunani, Barat, Islam), 3 pilar (Ontologi, Epistemologi, Aksiologi), dan penerapan pada tata kelola Lembaga Pendidikan Islam.',
-    syllabusPdfUrl: '/syllabus/RPS_FMPI_Filsafat_Manajemen.pdf',
     driveFolderUrl: 'https://drive.google.com/drive/folders/1oB-e5Q2ZcEMPTwlo-JWygNbgcQkTNdJr',
-    pdfFileName: 'RPS_Filsafat_Manajemen_Pendidikan_Islam.pdf',
-    syllabusPdfs: [
-      {
-        id: 'pdf-fmpi-1',
-        name: 'RPS_Filsafat_Manajemen_Pendidikan_Islam.pdf',
-        url: '/syllabus/RPS_FMPI_Filsafat_Manajemen.pdf'
-      }
-    ],
+    syllabusPdfs: [],
     tasks: [
       {
         id: 'fmpi-task-jurnal',
@@ -429,16 +413,8 @@ export const INITIAL_COURSES: Course[] = [
       accent: '#9333EA',
     },
     syllabusSummary: 'Menganalisis ayat-ayat Al-Qur\'an menggunakan metodologi tafsir (Tahlili, Ijmali, Muqaran, Maudlu\'i) & mentransformasikan nilai Al-Qur\'an ke manajemen pendidikan. Penugasan publikasi Jurnal SINTA 3.',
-    syllabusPdfUrl: '/syllabus/RPS_TMPI_Tafsir_Manajemen.pdf',
     driveFolderUrl: 'https://drive.google.com/drive/folders/1WArJLtyzfeB5AStcz7mNyA62rQhXZmCI',
-    pdfFileName: 'RPS_Tafsir_Manajemen_Pendidikan_Islam.pdf',
-    syllabusPdfs: [
-      {
-        id: 'pdf-tmpi-1',
-        name: 'RPS_Tafsir_Manajemen_Pendidikan_Islam.pdf',
-        url: '/syllabus/RPS_TMPI_Tafsir_Manajemen.pdf'
-      }
-    ],
+    syllabusPdfs: [],
     tasks: [
       {
         id: 'tmpi-task-jurnal-sinta3',
@@ -606,16 +582,8 @@ export const INITIAL_COURSES: Course[] = [
       accent: '#4F46E5',
     },
     syllabusSummary: 'Membahas konsep, teori, prinsip, & praktik perencanaan pendidikan Islam berbasis Outcome-Based Education (OBE). Menghasilkan dokumen proyek Renstra Lembaga Pendidikan Islam 7 BAB.',
-    syllabusPdfUrl: '/syllabus/RPS_PPI_Perencanaan_Pendidikan_Islam.pdf',
     driveFolderUrl: 'https://drive.google.com/drive/folders/1d_dHYNkw6Ez4E145JKYUgLPfOgjsekB8',
-    pdfFileName: 'RPS_Perencanaan_Pendidikan_Islam.pdf',
-    syllabusPdfs: [
-      {
-        id: 'pdf-ppi-1',
-        name: 'RPS_Perencanaan_Pendidikan_Islam.pdf',
-        url: '/syllabus/RPS_PPI_Perencanaan_Pendidikan_Islam.pdf'
-      }
-    ],
+    syllabusPdfs: [],
     tasks: [
       {
         id: 'ppi-task-renstra-proyek',
@@ -698,16 +666,8 @@ export const INITIAL_COURSES: Course[] = [
       accent: '#059669',
     },
     syllabusSummary: 'Penerapan konsep Total Quality Management (TQM/MMT) dalam pendidikan: sejarah & tokoh (Deming, Juran, Crosby), model TQM/TQE/ISO/Malcolm Baldrige, alat bantu (Fishbone, Pareto), & SPMI BAN-S/M.',
-    syllabusPdfUrl: '/syllabus/RPS_MMTPI_Manajemen_Mutu_Terpadu.pdf',
     driveFolderUrl: 'https://drive.google.com/drive/folders/1bJRMS_MoXu4GFGSG5rgIjRRr0-7Dsxli',
-    pdfFileName: 'RPS_Manajemen_Mutu_Terpadu.pdf',
-    syllabusPdfs: [
-      {
-        id: 'pdf-mmtpi-1',
-        name: 'RPS_Manajemen_Mutu_Terpadu.pdf',
-        url: '/syllabus/RPS_MMTPI_Manajemen_Mutu_Terpadu.pdf'
-      }
-    ],
+    syllabusPdfs: [],
     tasks: [
       {
         id: 'mmtpi-task-audit-mutu',
