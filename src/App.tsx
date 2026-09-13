@@ -1033,23 +1033,82 @@ function MainApp() {
                   </button>
                 </div>
 
-                {/* GOOGLE DRIVE SILABUS & DOKUMEN MATKUL */}
+                {/* GOOGLE DRIVE SILABUS & WADAH FOLDER BERKAS MATKUL */}
                 <div className={`p-4 rounded-2xl border transition-all ${
                   darkMode ? 'bg-blue-950/20 border-blue-900/50' : 'bg-blue-50/60 border-blue-200/80'
                 } space-y-3`}>
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                  
+                  {/* Item 1: Wadah Folder Berkas Matkul (Otomatis menampilkan semua berkas terbaru) */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap border-b border-blue-200/50 dark:border-blue-900/40 pb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                        📁
+                      <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                        📂
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-xs text-blue-950 dark:text-blue-200">
-                          Berkas Silabus & Materi (Google Drive Mahasiswa)
+                        <h4 className="font-extrabold text-xs text-slate-900 dark:text-gray-100 flex items-center gap-1.5">
+                          <span>Wadah Berkas & Materi Matkul (Google Drive)</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                            Auto-Update
+                          </span>
                         </h4>
-                        <p className="text-[11px] text-blue-700 dark:text-blue-300">
+                        <p className="text-[11px] text-slate-500 dark:text-gray-400">
+                          {selectedCourse.driveFolderUrl
+                            ? 'Semua berkas yang diunggah Kosma ke folder Drive otomatis tampil di sini.'
+                            : 'Folder Google Drive belum ditautkan oleh Kosma.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {selectedCourse.driveFolderUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDriveDoc(`Folder Berkas ${selectedCourse.code}`, selectedCourse.driveFolderUrl!)}
+                          className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
+                        >
+                          <span>📂 Buka Folder Berkas Matkul (In-App)</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">
+                          Folder belum ditautkan
+                        </span>
+                      )}
+
+                      {/* Khusus Kosma: Tombol Tautkan / Ganti Folder */}
+                      {isLoggedInAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowLinkDriveModal({
+                              courseId: selectedCourse.id,
+                              isCourseFolder: true,
+                              title: `Folder Google Drive ${selectedCourse.code}`,
+                              currentUrl: selectedCourse.driveFolderUrl || ''
+                            });
+                            setDriveInputUrl(selectedCourse.driveFolderUrl || '');
+                          }}
+                          className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-indigo-400/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950 flex items-center gap-1 transition-all"
+                        >
+                          <span>🔗 {selectedCourse.driveFolderUrl ? 'Ganti Link Folder' : '+ Tautkan Folder Drive'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Item 2: Berkas Silabus / RPS Spesifik */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                        📄
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-xs text-slate-900 dark:text-gray-100">
+                          Dokumen Silabus / RPS Perkuliahan
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-gray-400">
                           {selectedCourse.syllabusDriveUrl
-                            ? '✅ Tautan Silabus Google Drive Aktif'
-                            : 'Unggah file silabus ke Google Drive lalu tautkan linknya di sini.'}
+                            ? 'Dokumen resmi silabus perkuliahan siap dibaca.'
+                            : 'Dokumen silabus belum ditautkan oleh Kosma.'}
                         </p>
                       </div>
                     </div>
@@ -1057,20 +1116,23 @@ function MainApp() {
                     <div className="flex items-center gap-2 flex-wrap">
                       {selectedCourse.syllabusDriveUrl ? (
                         <button
+                          type="button"
                           onClick={() => handleOpenDriveDoc(`Silabus & RPS ${selectedCourse.code}`, selectedCourse.syllabusDriveUrl!)}
                           className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
                         >
                           <FileText className="w-4 h-4" />
-                          <span>📖 Baca Silabus & Dokumen RPS (In-App)</span>
+                          <span>📖 Baca Silabus (In-App)</span>
                         </button>
                       ) : (
                         <span className="text-xs text-slate-400 italic">
-                          📄 Dokumen silabus belum diunggah oleh Kosma
+                          Silabus belum ditautkan
                         </span>
                       )}
 
+                      {/* Khusus Kosma: Tombol Tautkan / Ganti File Silabus */}
                       {isLoggedInAdmin && (
                         <button
+                          type="button"
                           onClick={() => {
                             setShowLinkDriveModal({
                               courseId: selectedCourse.id,
@@ -1087,6 +1149,7 @@ function MainApp() {
                       )}
                     </div>
                   </div>
+
                 </div>
 
                 {/* PDF PREVIEW & DOWNLOAD SECTION (MOBILE OPTIMIZED) */}
