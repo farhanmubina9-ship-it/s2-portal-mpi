@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
-import { INITIAL_COURSES, ALL_GUIDELINES, Course, Task, Group, SyllabusFile } from './coursesData';
+import { INITIAL_COURSES, Course, Task, Group, SyllabusFile } from './coursesData';
 import { supabase } from './supabaseClient';
 import { 
   Sun, Moon, Calendar, Clock, MapPin, UserCheck, BookOpen, 
@@ -150,8 +150,7 @@ function MainApp() {
   const isInitialFetchCompleted = useRef<boolean>(false);
   const [showSqlGuide, setShowSqlGuide] = useState<boolean>(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'jadwal' | 'tugas' | 'pedoman' | 'admin'>('jadwal');
-  const [selectedGuidelineId, setSelectedGuidelineId] = useState<string>('sistematika-makalah');
+  const [activeTab, setActiveTab] = useState<'jadwal' | 'tugas' | 'admin'>('jadwal');
   
   // Detail Course Tab
   const [detailTab, setDetailTab] = useState<'info' | 'tugas' | 'kelompok' | 'ai'>('info');
@@ -1004,38 +1003,6 @@ function MainApp() {
                     ))}
                   </div>
                 )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  <button
-                    onClick={() => {
-                      setActiveTab('pedoman');
-                      setSelectedGuidelineId('sistematika-makalah');
-                      setSelectedCourseId(null);
-                    }}
-                    className="py-2.5 px-3 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-bold flex items-center justify-between transition-all shadow-2xs"
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span className="truncate">Sistematika Penulisan Makalah</span>
-                    </span>
-                    <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab('pedoman');
-                      setSelectedGuidelineId('artikel-jurnal');
-                      setSelectedCourseId(null);
-                    }}
-                    className="py-2.5 px-3 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 border border-purple-200 dark:border-purple-800 text-purple-800 dark:text-purple-200 rounded-xl text-xs font-bold flex items-center justify-between transition-all shadow-2xs"
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <BookOpen className="w-4 h-4 text-purple-600 shrink-0" />
-                      <span className="truncate">Pedoman Penulisan Artikel 2026</span>
-                    </span>
-                    <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />
-                  </button>
-                </div>
 
                 {/* GOOGLE DRIVE SILABUS & WADAH FOLDER BERKAS MATKUL */}
                 <div className={`p-4 rounded-2xl border transition-all ${
@@ -2539,127 +2506,7 @@ function MainApp() {
               );
             })()}
 
-            {/* 4. UNIFIED PEDOMAN & SISTEMATIKA PENULISAN VIEW */}
-            {activeTab === 'pedoman' && (
-              <div className="space-y-4 animate-fadeIn">
-                {/* Banner Header */}
-                <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gradient-to-br from-emerald-950/80 to-gray-900 border-emerald-800/50' : 'bg-gradient-to-br from-emerald-50 to-white border-emerald-200'} shadow-xs`}>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 sm:p-3 rounded-2xl bg-emerald-600 text-white shrink-0 shadow-xs">
-                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-extrabold tracking-wider uppercase px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
-                        Pusat Panduan Akademik MPS 2
-                      </span>
-                      <h2 className="text-base sm:text-lg font-extrabold mt-1 text-slate-800 dark:text-white">
-                        Pedoman & Sistematika Penulisan
-                      </h2>
-                      <p className="text-xs text-slate-600 dark:text-gray-300 mt-0.5 leading-relaxed">
-                        Pedoman Penulisan Artikel 2026 (Layout 4-4-3-3 & APA 7th) dan Sistematika Penulisan Makalah Standar Program Magister.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Horizontal Scroll Pill Selector for ALL 5 Guidelines */}
-                  <div className="flex gap-2 mt-4 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/40 overflow-x-auto pb-1 no-scrollbar">
-                    {ALL_GUIDELINES.map(g => (
-                      <button
-                        key={g.id}
-                        onClick={() => setSelectedGuidelineId(g.id)}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-                          selectedGuidelineId === g.id
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : darkMode
-                            ? 'bg-gray-800/90 text-gray-300 hover:bg-gray-700'
-                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        {g.id === 'sistematika-makalah' ? <FileText className="w-3.5 h-3.5" /> : g.id === 'artikel-jurnal' ? <FileText className="w-3.5 h-3.5" /> : g.id === 'hmpi' ? <BookOpen className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-                        <span>{g.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Content Detail of Selected Guideline */}
-                {(() => {
-                  const currentGuideline = ALL_GUIDELINES.find(g => g.id === selectedGuidelineId) || ALL_GUIDELINES[0];
-                  return (
-                    <div className="space-y-4">
-                      <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-4`}>
-                        <div className="flex items-center justify-between gap-2 flex-wrap border-b pb-2.5 border-slate-100 dark:border-gray-800">
-                          <h3 className="font-extrabold text-sm sm:text-base text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                            <BookOpen className="w-4 h-4" /> {currentGuideline.title}
-                          </h3>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                            {currentGuideline.badge}
-                          </span>
-                        </div>
-                        
-                        <p className="text-xs text-slate-600 dark:text-gray-300 leading-relaxed font-medium">
-                          {currentGuideline.description}
-                        </p>
-
-                        {/* Guideline Sections */}
-                        <div className="space-y-3 pt-1">
-                          {currentGuideline.sections.map((sec, idx) => (
-                            <div 
-                              key={idx}
-                              className={`p-3.5 sm:p-4 rounded-xl border ${
-                                darkMode ? 'bg-gray-800/60 border-gray-700/80' : 'bg-slate-50 border-slate-200/80'
-                              } space-y-2`}
-                            >
-                              <h4 className="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-white flex items-center gap-2 border-b pb-1.5 border-slate-200 dark:border-gray-700">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                {sec.heading}
-                              </h4>
-                              <ul className="space-y-2 text-xs text-slate-700 dark:text-gray-200 leading-relaxed font-medium">
-                                {sec.items.map((item, iidx) => (
-                                  <li key={iidx} className="flex items-start gap-2">
-                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0 mt-0.5">•</span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Callout box for Makalah Standar & Artikel Jurnal */}
-                      {currentGuideline.id === 'sistematika-makalah' && (
-                        <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-amber-950/40 border-amber-800/60 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'} text-xs space-y-1.5`}>
-                          <div className="font-extrabold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
-                            <Sparkles className="w-4 h-4 shrink-0" /> Ketentuan Penting Makalah Standar:
-                          </div>
-                          <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-amber-100/90 font-medium pl-1">
-                            <li><strong>Latar Belakang (Das Sein vs Das Sollen)</strong>: Mengurai fakta empiris vs harapan teori.</li>
-                            <li><strong>Rumusan Masalah</strong>: Wajib diawali kata <em>"Bagaimana..."</em>.</li>
-                            <li><strong>Integrasi Pembahasan (BAB III)</strong>: Gabungkan Analisis, Interpretasi, & Diskusi.</li>
-                          </ul>
-                        </div>
-                      )}
-
-                      {currentGuideline.id === 'artikel-jurnal' && (
-                        <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-blue-950/40 border-blue-800/60 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'} text-xs space-y-1.5`}>
-                          <div className="font-extrabold flex items-center gap-1.5 text-blue-700 dark:text-blue-300">
-                            <Sparkles className="w-4 h-4 shrink-0" /> Ringkasan Layout Artikel & Margin 4-4-3-3:
-                          </div>
-                          <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-blue-100/90 font-medium pl-1">
-                            <li><strong>Margin Kertas</strong>: Atas 4 cm, Kiri 4 cm, Kanan 3 cm, Bawah 3 cm. Nomor Halaman di tengah bawah.</li>
-                            <li><strong>Alur Pendahuluan 4 Paragraf</strong>: P1 (Urgensi), P2 (State of the art), P3 (Research Gap & Novelty), P4 (Tujuan & Fokus).</li>
-                            <li><strong>Gaya Sitasi</strong>: APA 7th Edition (memuat DOI) & Footnote untuk kitab tafsir/buku.</li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-
-            {/* 4. KOSMA / ADMIN PANEL (PIN PROTECTED) */}
+            {/* 3. KOSMA / ADMIN PANEL (PIN PROTECTED) */}
             {activeTab === 'admin' && (
               <div className="space-y-4">
                 {!isLoggedInAdmin ? (
@@ -3003,20 +2850,6 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                 {allTasks.length}
               </span>
             )}
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('pedoman');
-              setSelectedCourseId(null);
-            }}
-            className={`flex-1 py-2.5 text-xs sm:text-sm font-bold border-b-2 text-center transition-colors flex items-center justify-center gap-1.5 ${
-              activeTab === 'pedoman' && !selectedCourseId
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-800'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
-            Pedoman & Sistematika
           </button>
         </div>
       </header>
