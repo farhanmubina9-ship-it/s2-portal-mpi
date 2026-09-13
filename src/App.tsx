@@ -54,6 +54,7 @@ const mergeWithDefaults = (savedCourses: any[]): Course[] => {
         ...g,
         status: (savedMatch?.status === 'Selesai' || g.status === 'Selesai') ? 'Selesai' : 'Belum',
         completedAt: savedMatch?.completedAt || g.completedAt,
+        driveUrl: savedMatch?.driveUrl || g.driveUrl,
       };
     });
 
@@ -62,7 +63,7 @@ const mergeWithDefaults = (savedCourses: any[]): Course[] => {
     const userCustomTasks = cleanTasks.filter((ct: any) => !officialTasks.some(ot => ot.id === ct.id));
     const mergedTasks = [...officialTasks, ...userCustomTasks].map(t => {
       const savedTaskMatch = cleanTasks.find((st: any) => st.id === t.id);
-      return savedTaskMatch ? { ...t, status: savedTaskMatch.status } : t;
+      return savedTaskMatch ? { ...t, status: savedTaskMatch.status, driveUrl: savedTaskMatch.driveUrl || t.driveUrl } : t;
     });
 
     return {
@@ -351,6 +352,66 @@ function MainApp() {
   // Fullscreen In-App Mobile PDF Viewer State
   const [fullscreenPdf, setFullscreenPdf] = useState<SyllabusFile | null>(null);
 
+  // In-App Google Drive Modal Viewer State
+  const [activeDriveDoc, setActiveDriveDoc] = useState<{ title: string; embedUrl: string; rawUrl: string } | null>(null);
+
+  // Modal to Link Google Drive File (For Kosma Admin)
+  const [showLinkDriveModal, setShowLinkDriveModal] = useState<{ courseId: string; groupIndex?: number; taskId?: string; title: string; currentUrl?: string } | null>(null);
+  const [driveInputUrl, setDriveInputUrl] = useState('');
+
+  // Helper to convert any Google Drive sharing link into an in-app embed preview URL
+  const convertToDriveEmbedUrl = (url: string): string => {
+    if (!url) return '';
+    const clean = url.trim();
+    // Match file ID: /file/d/{id} or id={id}
+    const fileMatch = clean.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || clean.match(/id=([a-zA-Z0-9_-]+)/);
+    if (fileMatch && fileMatch[1]) {
+      return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
+    }
+    // Match folder ID: /drive/folders/{id}
+    const folderMatch = clean.match(/\/drive\/folders\/([a-zA-Z0-9_-]+)/);
+    if (folderMatch && folderMatch[1]) {
+      return `https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`;
+    }
+    return clean;
+  };
+
+  const handleOpenDriveDoc = (title: string, rawUrl: string) => {
+    const embedUrl = convertToDriveEmbedUrl(rawUrl);
+    setActiveDriveDoc({ title, embedUrl, rawUrl });
+  };
+
+  const handleSaveDriveLink = () => {
+    if (!showLinkDriveModal) return;
+    const { courseId, groupIndex, taskId } = showLinkDriveModal;
+    const url = driveInputUrl.trim();
+
+    setCourses(prev => {
+      const updated = prev.map(c => {
+        if (c.id === courseId) {
+          if (groupIndex !== undefined) {
+            const updatedGroups = [...(c.groups || [])];
+            if (updatedGroups[groupIndex]) {
+              updatedGroups[groupIndex] = { ...updatedGroups[groupIndex], driveUrl: url || undefined };
+            }
+            return { ...c, groups: updatedGroups };
+          } else if (taskId) {
+            const updatedTasks = (c.tasks || []).map(t => t.id === taskId ? { ...t, driveUrl: url || undefined } : t);
+            return { ...c, tasks: updatedTasks };
+          }
+        }
+        return c;
+      });
+      localStorage.setItem('mps2_courses', JSON.stringify(updated));
+      supabase.from('mps2_store').upsert({ id: 'courses_data', data: updated, updated_at: new Date().toISOString() });
+      return updated;
+    });
+
+    setShowLinkDriveModal(null);
+    setDriveInputUrl('');
+    alert('Link Google Drive berkas berhasil disimpan dan langsung terhubung di web portal!');
+  };
+
   const handleOpenPdfFullscreen = (pdf: SyllabusFile) => {
     if (pdf.url && pdf.url.startsWith('data:application/pdf;base64,')) {
       try {
@@ -396,6 +457,7 @@ function MainApp() {
       members: g.members || [],
       status: (g.status === 'Selesai' ? 'Selesai' : 'Belum') as 'Belum' | 'Selesai',
       completedAt: g.completedAt,
+      driveUrl: g.driveUrl,
       courseTheme: c.colorTheme,
       isJurnalOrArtikel: g.name.toLowerCase().includes('jurnal') || g.name.toLowerCase().includes('artikel'),
     }))
@@ -1259,7 +1321,7 @@ function MainApp() {
                             </div>
                           )}
 
-                          <div className="space-y-1">
+                            <div className="space-y-1">
                             <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500">
                               {isSpecialType ? 'Penulis / Anggota:' : 'Presenter / Anggota:'}
                             </span>
@@ -1280,6 +1342,40 @@ function MainApp() {
                                 </span>
                               ))}
                             </div>
+                          </div>
+
+                          {/* Berkas Makalah / PPT (Google Drive Embed Viewer) */}
+                          <div className="pt-2 border-t border-slate-100 dark:border-gray-800/60 flex items-center justify-between gap-2 flex-wrap text-xs">
+                            {group.driveUrl ? (
+                              <button
+                                onClick={() => handleOpenDriveDoc(`${group.name} - ${group.topic || selectedCourse.code}`, group.driveUrl!)}
+                                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>📖 Baca Makalah / PPT (In-App)</span>
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 italic flex items-center gap-1">
+                                <span>📁 Berkas makalah belum ditautkan</span>
+                              </span>
+                            )}
+
+                            {isLoggedInAdmin && (
+                              <button
+                                onClick={() => {
+                                  setShowLinkDriveModal({
+                                    courseId: selectedCourse.id,
+                                    groupIndex: originalIdx,
+                                    title: `${group.name} (${selectedCourse.code})`,
+                                    currentUrl: group.driveUrl || ''
+                                  });
+                                  setDriveInputUrl(group.driveUrl || '');
+                                }}
+                                className="px-2.5 py-1 rounded-xl text-[11px] font-bold border border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 flex items-center gap-1 transition-all"
+                              >
+                                <span>🔗 {group.driveUrl ? 'Ganti Link Drive' : '+ Tautkan Google Drive'}</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -1855,37 +1951,73 @@ function MainApp() {
                                     </div>
                                   </div>
 
-                                  {/* Kosma Action Toggle Button */}
-                                  <div className="shrink-0 pt-2 sm:pt-0">
-                                    {isLoggedInAdmin ? (
-                                      <button
-                                        onClick={() => handleToggleGroupStatus(agenda.courseId, agenda.groupIndex)}
-                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 ${
-                                          isDone
-                                            ? 'bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 dark:bg-gray-800 dark:hover:bg-rose-950 dark:text-gray-300 dark:hover:text-rose-300'
-                                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                        }`}
-                                        title={isDone ? 'Klik untuk membatalkan status selesai' : 'Klik untuk menandai presentasi telah selesai'}
-                                      >
-                                        {isDone ? (
-                                          <>
-                                            <span>↺ Batal Selesai</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <CheckCircle2 className="w-3.5 h-3.5" />
-                                            <span>Tandai Selesai</span>
-                                          </>
-                                        )}
-                                      </button>
-                                    ) : (
-                                      <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 bg-slate-100 dark:bg-gray-800/60 px-2 py-1 rounded-lg flex items-center gap-1">
-                                        <Lock className="w-3 h-3 text-amber-500" />
-                                        <span>Status Kosma</span>
-                                      </span>
-                                    )}
+                                  {/* Berkas Makalah / PPT & Kosma Action Toggle Button */}
+                                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-gray-800/60 w-full flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {agenda.driveUrl ? (
+                                        <button
+                                          onClick={() => handleOpenDriveDoc(`${agenda.name} - ${agenda.topic || agenda.courseCode}`, agenda.driveUrl!)}
+                                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
+                                        >
+                                          <FileText className="w-3.5 h-3.5" />
+                                          <span>📖 Baca Makalah / PPT (In-App)</span>
+                                        </button>
+                                      ) : (
+                                        <span className="text-[11px] text-slate-400 italic">
+                                          📁 Makalah belum ditautkan
+                                        </span>
+                                      )}
+
+                                      {isLoggedInAdmin && (
+                                        <button
+                                          onClick={() => {
+                                            setShowLinkDriveModal({
+                                              courseId: agenda.courseId,
+                                              groupIndex: agenda.groupIndex,
+                                              title: `${agenda.name} (${agenda.courseCode})`,
+                                              currentUrl: agenda.driveUrl || ''
+                                            });
+                                            setDriveInputUrl(agenda.driveUrl || '');
+                                          }}
+                                          className="px-2.5 py-1 rounded-xl text-[11px] font-bold border border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 flex items-center gap-1 transition-all"
+                                        >
+                                          <span>🔗 {agenda.driveUrl ? 'Ganti Link Drive' : '+ Tautkan Google Drive'}</span>
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* Kosma Action Toggle Button */}
+                                    <div className="shrink-0">
+                                      {isLoggedInAdmin ? (
+                                        <button
+                                          onClick={() => handleToggleGroupStatus(agenda.courseId, agenda.groupIndex)}
+                                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 ${
+                                            isDone
+                                              ? 'bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 dark:bg-gray-800 dark:hover:bg-rose-950 dark:text-gray-300 dark:hover:text-rose-300'
+                                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                          }`}
+                                          title={isDone ? 'Klik untuk membatalkan status selesai' : 'Klik untuk menandai presentasi telah selesai'}
+                                        >
+                                          {isDone ? (
+                                            <>
+                                              <span>↺ Batal Selesai</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <CheckCircle2 className="w-3.5 h-3.5" />
+                                              <span>Tandai Selesai</span>
+                                            </>
+                                          )}
+                                        </button>
+                                      ) : (
+                                        <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 bg-slate-100 dark:bg-gray-800/60 px-2 py-1 rounded-lg flex items-center gap-1">
+                                          <Lock className="w-3 h-3 text-amber-500" />
+                                          <span>Status Kosma</span>
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
+                                  </div>
                               </div>
                             );
                           })}
@@ -2029,6 +2161,40 @@ function MainApp() {
                                           Batas Akhir: {new Date(task.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                                         </span>
                                       </div>
+
+                                      {/* Berkas Panduan / Template Google Drive */}
+                                      <div className="pt-2 border-t border-slate-100 dark:border-gray-800/60 flex items-center justify-between gap-2 flex-wrap text-xs w-full">
+                                        {task.driveUrl ? (
+                                          <button
+                                            onClick={() => handleOpenDriveDoc(`${task.courseCode}: ${task.title}`, task.driveUrl!)}
+                                            className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
+                                          >
+                                            <FileText className="w-3.5 h-3.5" />
+                                            <span>📖 Buka Berkas / Template (In-App)</span>
+                                          </button>
+                                        ) : (
+                                          <span className="text-[11px] text-slate-400 italic">
+                                            📁 Berkas acuan / template belum ditautkan
+                                          </span>
+                                        )}
+
+                                        {isLoggedInAdmin && (
+                                          <button
+                                            onClick={() => {
+                                              setShowLinkDriveModal({
+                                                courseId: task.courseId,
+                                                taskId: task.id,
+                                                title: `${task.courseCode}: ${task.title}`,
+                                                currentUrl: task.driveUrl || ''
+                                              });
+                                              setDriveInputUrl(task.driveUrl || '');
+                                            }}
+                                            className="px-2.5 py-1 rounded-xl text-[11px] font-bold border border-purple-500/50 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 flex items-center gap-1 transition-all"
+                                          >
+                                            <span>🔗 {task.driveUrl ? 'Ganti Link Drive' : '+ Tautkan Google Drive'}</span>
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
 
                                     {/* Status Badge & Kosma Action */}
@@ -2040,12 +2206,12 @@ function MainApp() {
                                       }`}>
                                         {task.status === 'Selesai' ? (
                                           <>
-                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                                             <span>Selesai</span>
                                           </>
                                         ) : (
                                           <>
-                                            <Clock className="w-3 h-3 text-amber-600" />
+                                            <Clock className="w-3.5 h-3.5 text-amber-600" />
                                             <span>Proses / Belum</span>
                                           </>
                                         )}
@@ -2752,6 +2918,113 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
               >
                 Buka Tab Asli ↗
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: IN-APP GOOGLE DRIVE DOCUMENT VIEWER (STAYS INSIDE PORTAL) */}
+      {activeDriveDoc && (
+        <div className="fixed inset-0 z-[110] bg-slate-950 flex flex-col font-sans animate-fadeIn">
+          {/* Top Bar Controls */}
+          <div className="p-3 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between gap-2 shadow-md">
+            <div className="flex items-center gap-2 truncate pr-2">
+              <FileText className="w-5 h-5 text-blue-400 shrink-0" />
+              <div className="truncate">
+                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-900 text-blue-200 mr-1.5">
+                  Google Drive In-App
+                </span>
+                <span className="font-bold text-xs sm:text-sm truncate">{activeDriveDoc.title}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={activeDriveDoc.rawUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors border border-slate-700"
+                title="Buka langsung di aplikasi Google Drive"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Buka Tab Luar</span>
+              </a>
+              <button
+                onClick={() => setActiveDriveDoc(null)}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1"
+              >
+                ✕ Tutup
+              </button>
+            </div>
+          </div>
+
+          {/* Embedded Google Drive Frame */}
+          <div className="flex-1 w-full bg-slate-900 relative">
+            <iframe
+              src={activeDriveDoc.embedUrl}
+              title={activeDriveDoc.title}
+              className="w-full h-full border-none"
+              allow="autoplay"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: KOSMA INPUT GOOGLE DRIVE LINK */}
+      {showLinkDriveModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className={`w-full max-w-md p-5 rounded-3xl border shadow-xl ${darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'} space-y-4`}>
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-3">
+              <h3 className="font-bold text-sm flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                <FileText className="w-4 h-4" /> Tautkan Makalah / PPT (Google Drive)
+              </h3>
+              <button onClick={() => setShowLinkDriveModal(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <span className="text-xs font-semibold text-slate-500 dark:text-gray-400 block">Sasaran Penugasan:</span>
+                <p className="font-extrabold text-sm text-slate-800 dark:text-gray-100">{showLinkDriveModal.title}</p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold">Link Berkas Google Drive:</label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+                  value={driveInputUrl}
+                  onChange={(e) => setDriveInputUrl(e.target.value)}
+                  className={`w-full p-3 text-xs rounded-xl border outline-none font-mono ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                />
+                <p className="text-[11px] text-slate-500 dark:text-gray-400 pt-1">
+                  💡 <em>Petunjuk: Salin link berbagi berkas dari Google Drive Anda (pastikan akses disetel 'Siapa saja yang memiliki link'). Web akan otomatis menampilkannya langsung di dalam aplikasi tanpa membuka tab Google Drive.</em>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowLinkDriveModal(null)}
+                className="flex-1 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-gray-700"
+              >
+                Batal
+              </button>
+              {showLinkDriveModal.currentUrl && (
+                <button
+                  onClick={() => {
+                    setDriveInputUrl('');
+                    setTimeout(() => handleSaveDriveLink(), 50);
+                  }}
+                  className="px-3 py-2 text-xs font-bold rounded-xl bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300"
+                >
+                  Hapus Link
+                </button>
+              )}
+              <button
+                onClick={handleSaveDriveLink}
+                className="flex-1 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-xs"
+              >
+                Simpan Link
+              </button>
             </div>
           </div>
         </div>

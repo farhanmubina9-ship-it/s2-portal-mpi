@@ -42,6 +42,7 @@ export interface Task {
   type: 'Individu' | 'Kelompok';
   category?: 'Jurnal' | 'UAS' | 'Proyek' | 'Tugas';
   status: 'Belum' | 'Proses' | 'Selesai';
+  driveUrl?: string;
 }
 
 export interface Group {
@@ -50,6 +51,7 @@ export interface Group {
   members: string[];
   status?: 'Belum' | 'Selesai';
   completedAt?: string;
+  driveUrl?: string;
 }
 
 export interface GuidelineSection {
