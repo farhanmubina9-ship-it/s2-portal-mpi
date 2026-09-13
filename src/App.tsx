@@ -923,57 +923,35 @@ function MainApp() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                      {selectedCourse.syllabusDriveUrl && (
+                      {selectedCourse.syllabusDriveUrl ? (
                         <button
                           onClick={() => handleOpenDriveDoc(`Silabus & RPS ${selectedCourse.code}`, selectedCourse.syllabusDriveUrl!)}
-                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
+                          className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
                         >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>📖 Buka Silabus (In-App)</span>
+                          <FileText className="w-4 h-4" />
+                          <span>📖 Baca Silabus & Dokumen RPS (In-App)</span>
                         </button>
-                      )}
-
-                      {selectedCourse.driveFolderUrl && (
-                        <button
-                          onClick={() => handleOpenDriveDoc(`Folder Materi ${selectedCourse.code}`, selectedCourse.driveFolderUrl!)}
-                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 dark:bg-gray-800 dark:hover:bg-gray-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
-                        >
-                          <span>📂 Buka Folder Matkul</span>
-                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">
+                          📄 Dokumen silabus belum diunggah oleh Kosma
+                        </span>
                       )}
 
                       {isLoggedInAdmin && (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <button
-                            onClick={() => {
-                              setShowLinkDriveModal({
-                                courseId: selectedCourse.id,
-                                isSyllabus: true,
-                                title: `Silabus / RPS ${selectedCourse.code}`,
-                                currentUrl: selectedCourse.syllabusDriveUrl || ''
-                              });
-                              setDriveInputUrl(selectedCourse.syllabusDriveUrl || '');
-                            }}
-                            className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-blue-500/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950 flex items-center gap-1 transition-all"
-                          >
-                            <span>🔗 {selectedCourse.syllabusDriveUrl ? 'Ganti Link Silabus' : '+ Tautkan Silabus Drive'}</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setShowLinkDriveModal({
-                                courseId: selectedCourse.id,
-                                isCourseFolder: true,
-                                title: `Folder Drive Materi ${selectedCourse.code}`,
-                                currentUrl: selectedCourse.driveFolderUrl || ''
-                              });
-                              setDriveInputUrl(selectedCourse.driveFolderUrl || '');
-                            }}
-                            className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-slate-400/60 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 flex items-center gap-1 transition-all"
-                          >
-                            <span>📁 {selectedCourse.driveFolderUrl ? 'Ganti Folder' : '+ Tautkan Folder Matkul'}</span>
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => {
+                            setShowLinkDriveModal({
+                              courseId: selectedCourse.id,
+                              isSyllabus: true,
+                              title: `Silabus / RPS ${selectedCourse.code}`,
+                              currentUrl: selectedCourse.syllabusDriveUrl || ''
+                            });
+                            setDriveInputUrl(selectedCourse.syllabusDriveUrl || '');
+                          }}
+                          className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-blue-500/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950 flex items-center gap-1 transition-all"
+                        >
+                          <span>🔗 {selectedCourse.syllabusDriveUrl ? 'Ganti File Silabus' : '+ Tautkan File Silabus Drive'}</span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -2698,16 +2676,6 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
               <Database className="w-2.5 h-2.5" />
               <span>{isSyncedWithSupabase ? 'Cloud Sync' : 'Local'}</span>
             </span>
-
-            {/* Tombol Google Drive Kelas */}
-            <button
-              onClick={() => handleOpenDriveDoc('Google Drive S2 MPI (Folder Utama Kelas)', 'https://drive.google.com/drive/folders/16-G6JSl7_ozJaM2lrpHVLWYERkv2cW3d')}
-              className="px-2 py-1 rounded-xl border border-blue-500/40 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[11px] font-bold flex items-center gap-1 shrink-0 transition-all shadow-2xs"
-              title="Buka Google Drive Kelas S2 MPI (In-App)"
-            >
-              <span>📂</span>
-              <span className="hidden sm:inline">Drive Kelas</span>
-            </button>
 
             {/* Tombol KOSMA Admin */}
             <button
