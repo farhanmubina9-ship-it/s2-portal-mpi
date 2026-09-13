@@ -1009,45 +1009,45 @@ function MainApp() {
                   darkMode ? 'bg-blue-950/20 border-blue-900/50' : 'bg-blue-50/60 border-blue-200/80'
                 } space-y-3`}>
                   
-                  {/* Item 1: Wadah Folder Berkas Matkul (Otomatis menampilkan semua berkas terbaru) */}
-                  <div className="flex items-center justify-between gap-3 flex-wrap border-b border-blue-200/50 dark:border-blue-900/40 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                        📂
+                  {/* Item 1: Wadah Folder Berkas Matkul (Khusus Kosma) */}
+                  {isLoggedInAdmin && (
+                    <div className="flex items-center justify-between gap-3 flex-wrap border-b border-blue-200/50 dark:border-blue-900/40 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                          📂
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-xs text-slate-900 dark:text-gray-100 flex items-center gap-1.5">
+                            <span>Wadah Berkas & Materi Matkul (Google Drive)</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                              Khusus Kosma
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-gray-400">
+                            {selectedCourse.driveFolderUrl
+                              ? 'Akses folder Drive untuk mengunggah / kelola berkas matkul.'
+                              : 'Folder Google Drive belum ditautkan oleh Kosma.'}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-extrabold text-xs text-slate-900 dark:text-gray-100 flex items-center gap-1.5">
-                          <span>Wadah Berkas & Materi Matkul (Google Drive)</span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                            Auto-Update
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {selectedCourse.driveFolderUrl ? (
+                          <a
+                            href={selectedCourse.driveFolderUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
+                          >
+                            <span>📂 Buka Folder Berkas Matkul ↗</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">
+                            Folder belum ditautkan
                           </span>
-                        </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-gray-400">
-                          {selectedCourse.driveFolderUrl
-                            ? 'Semua berkas yang diunggah Kosma ke folder Drive otomatis tampil di sini.'
-                            : 'Folder Google Drive belum ditautkan oleh Kosma.'}
-                        </p>
-                      </div>
-                    </div>
+                        )}
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {selectedCourse.driveFolderUrl ? (
-                        <a
-                          href={selectedCourse.driveFolderUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]"
-                        >
-                          <span>📂 Buka Folder Berkas Matkul ↗</span>
-                        </a>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">
-                          Folder belum ditautkan
-                        </span>
-                      )}
-
-                      {/* Khusus Kosma: Tombol Tautkan / Ganti Folder */}
-                      {isLoggedInAdmin && (
+                        {/* Khusus Kosma: Tombol Tautkan / Ganti Folder */}
                         <button
                           type="button"
                           onClick={() => {
@@ -1063,9 +1063,9 @@ function MainApp() {
                         >
                           <span>🔗 {selectedCourse.driveFolderUrl ? 'Ganti Link Folder' : '+ Tautkan Folder Drive'}</span>
                         </button>
-                      )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Item 2: Berkas Silabus / RPS Spesifik */}
                   <div className="flex items-center justify-between gap-3 flex-wrap">
