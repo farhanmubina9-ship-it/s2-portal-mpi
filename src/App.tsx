@@ -40,26 +40,21 @@ const mergeWithDefaults = (savedCourses: any[]): Course[] => {
       ? saved.syllabusPdfUrl 
       : undefined;
 
-    // Check if saved groups have outdated placeholder topics
-    const hasGenericTopics = Array.isArray(saved.groups) && saved.groups.some((g: any) => 
-      g && typeof g.topic === 'string' && g.topic === 'Diskusi & Presentasi Makalah Tafsir Manajemen Pendidikan Islam'
-    );
+    // Filter out old legacy dummy groups so all courses start clean and empty until user imports them
+    const isLegacyGroup = (g: any) => {
+      if (!g) return true;
+      const name = g.name || '';
+      const topic = g.topic || '';
+      return name.includes('(Diskusi)') || name.startsWith('Topik ') || topic.includes('Relasi Filsafat') || topic.includes('Sumber Penafsiran');
+    };
 
-    // If initial defines official groups and saved has fewer groups than initial or has generic placeholder topics, prefer initial
-    const preferInitialGroups = Boolean(
-      initial.groups && initial.groups.length > 0 && 
-      (cleanGroups.length < initial.groups.length || hasGenericTopics)
-    );
-    const baseGroups = preferInitialGroups ? initial.groups : (cleanGroups.length > 0 ? cleanGroups : initial.groups);
-    const finalGroups = (baseGroups || []).map((g: any) => {
-      const savedMatch = Array.isArray(saved.groups) ? saved.groups.find((sg: any) => sg && sg.name === g.name) : null;
-      return {
-        ...g,
-        status: (savedMatch?.status === 'Selesai' || g.status === 'Selesai') ? 'Selesai' : 'Belum',
-        completedAt: savedMatch?.completedAt || g.completedAt,
-        driveUrl: savedMatch?.driveUrl || g.driveUrl,
-      };
-    });
+    const userImportedGroups = cleanGroups.filter((g: any) => !isLegacyGroup(g));
+    const finalGroups = userImportedGroups.map((g: any) => ({
+      ...g,
+      status: g.status === 'Selesai' ? 'Selesai' : 'Belum',
+      completedAt: g.completedAt,
+      driveUrl: g.driveUrl,
+    }));
 
     // Merge initial official tasks (Jurnal, UAS, Proyek) with any user-saved tasks
     const officialTasks = initial.tasks || [];
@@ -131,6 +126,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 function MainApp() {
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [courses, setCourses] = useState<Course[]>(() => {
+    const isCleaned = localStorage.getItem('mps2_clean_slate_2026') === 'v2';
+    if (!isCleaned) {
+      localStorage.removeItem('mps2_courses');
+      localStorage.setItem('mps2_clean_slate_2026', 'v2');
+      return INITIAL_COURSES;
+    }
     const saved = localStorage.getItem('mps2_courses');
     if (saved) {
       try {
@@ -210,22 +211,19 @@ function MainApp() {
           setCourses(merged);
           localStorage.setItem('mps2_courses', JSON.stringify(merged));
           
-          // If Supabase cloud store had old nicknames or fewer groups than official INITIAL_COURSES
-          const needsCloudSync = data.data.some((c: any) => {
-            const init = INITIAL_COURSES.find(ic => ic.id === c.id);
-            if (!init) return false;
-            const hasOldNicknames = Array.isArray(c.groups) && c.groups.some((g: any) => 
-              Array.isArray(g.members) && g.members.some((m: string) => typeof m === 'string' && (m.startsWith('Pak ') || m.startsWith('Bu ') || m.startsWith('Buk ')))
+          // Check if Supabase cloud store still had legacy dummy groups
+          const cloudHadLegacy = data.data.some((c: any) => {
+            const hasLegacyGroups = Array.isArray(c.groups) && c.groups.some((g: any) => 
+              g.name?.includes('(Diskusi)') || 
+              g.name?.startsWith('Topik ') || 
+              g.topic?.includes('Relasi Filsafat') || 
+              g.topic?.includes('Sumber Penafsiran')
             );
-            const fewerGroupsThanOfficial = (init.groups?.length || 0) > (c.groups?.length || 0);
-            const hasPlaceholderTopic = Array.isArray(c.groups) && c.groups.some((g: any) => 
-              g && g.topic === 'Diskusi & Presentasi Makalah Tafsir Manajemen Pendidikan Islam'
-            );
-            return hasOldNicknames || fewerGroupsThanOfficial || hasPlaceholderTopic;
+            return hasLegacyGroups;
           });
-          if (needsCloudSync) {
+          if (cloudHadLegacy) {
             supabase.from('mps2_store').upsert({ id: 'courses_data', data: merged, updated_at: new Date().toISOString() }).then(() => {
-              console.log("Supabase successfully synced with updated official groups and full names.");
+              console.log("Supabase successfully cleaned of legacy dummy groups.");
             });
           }
 
