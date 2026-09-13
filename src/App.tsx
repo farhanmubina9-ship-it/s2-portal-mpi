@@ -1,22 +1,15 @@
 import React, { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
-import { INITIAL_COURSES, Course, Task, Group, SyllabusFile } from './coursesData';
+import { INITIAL_COURSES, ALL_GUIDELINES, Course, Task, Group, SyllabusFile } from './coursesData';
 import { supabase } from './supabaseClient';
 import { 
   Sun, Moon, Calendar, Clock, MapPin, UserCheck, BookOpen, 
-  FileText, Users, CheckCircle2, Upload,
+  FileText, Users, CheckCircle2,
   Plus, ArrowLeft, Send, Sparkles, ChevronRight, ShieldAlert,
   Lock, LogOut, KeyRound, UserPlus, Search, Download, Trash2,
-  Database, Check, Paperclip
+  Database, Paperclip, ExternalLink
 } from 'lucide-react';
 
-const readFileAsDataUrl = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
+
 
 // Safe Merge helper to prevent null/undefined runtime crashes and clean dummy data
 const mergeWithDefaults = (savedCourses: any[]): Course[] => {
@@ -29,17 +22,51 @@ const mergeWithDefaults = (savedCourses: any[]): Course[] => {
     const cleanTasks = Array.isArray(saved.tasks) 
       ? saved.tasks.filter((t: any) => t && !t.id?.endsWith('-task-1') && !t.id?.startsWith('dummy-')) 
       : [];
-    const cleanGroups = Array.isArray(saved.groups) 
+    
+    // Check if saved groups contain old nicknames like 'Pak ' or 'Bu '
+    const hasOldNicknames = Array.isArray(saved.groups) && saved.groups.some((g: any) => 
+      Array.isArray(g.members) && g.members.some((m: string) => 
+        typeof m === 'string' && (m.startsWith('Pak ') || m.startsWith('Bu ') || m.startsWith('Buk '))
+      )
+    );
+
+    const cleanGroups = (Array.isArray(saved.groups) && !hasOldNicknames)
       ? saved.groups.filter((g: any) => g && !g.members?.includes('Ahmad') && !g.members?.includes('Fajar')) 
       : [];
+    const cleanPdfs = (Array.isArray(saved.syllabusPdfs) && saved.syllabusPdfs.length > 0) 
+      ? saved.syllabusPdfs 
+      : (initial.syllabusPdfs || []);
+
+    // Check if saved groups have outdated placeholder topics
+    const hasGenericTopics = Array.isArray(saved.groups) && saved.groups.some((g: any) => 
+      g && typeof g.topic === 'string' && g.topic === 'Diskusi & Presentasi Makalah Tafsir Manajemen Pendidikan Islam'
+    );
+
+    // If initial defines official groups and saved has fewer groups than initial or has generic placeholder topics, prefer initial
+    const preferInitialGroups = Boolean(
+      initial.groups && initial.groups.length > 0 && 
+      (cleanGroups.length < initial.groups.length || hasGenericTopics)
+    );
+    const baseGroups = preferInitialGroups ? initial.groups : (cleanGroups.length > 0 ? cleanGroups : initial.groups);
+    const finalGroups = (baseGroups || []).map((g: any) => {
+      const savedMatch = Array.isArray(saved.groups) ? saved.groups.find((sg: any) => sg && sg.name === g.name) : null;
+      return {
+        ...g,
+        status: (savedMatch?.status === 'Selesai' || g.status === 'Selesai') ? 'Selesai' : 'Belum',
+        completedAt: savedMatch?.completedAt || g.completedAt,
+      };
+    });
 
     return {
       ...initial,
       ...saved,
       colorTheme: { ...initial.colorTheme, ...(saved.colorTheme || {}) },
       tasks: cleanTasks,
-      groups: cleanGroups,
-      syllabusPdfs: Array.isArray(saved.syllabusPdfs) ? saved.syllabusPdfs : [],
+      groups: finalGroups,
+      syllabusPdfs: cleanPdfs,
+      syllabusPdfUrl: saved.syllabusPdfUrl || initial.syllabusPdfUrl,
+      pdfFileName: saved.pdfFileName || initial.pdfFileName,
+      guidelineSections: initial.guidelineSections || saved.guidelineSections,
     };
   });
 };
@@ -108,11 +135,20 @@ function MainApp() {
   const isInitialFetchCompleted = useRef<boolean>(false);
   const [showSqlGuide, setShowSqlGuide] = useState<boolean>(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'jadwal' | 'tugas' | 'admin'>('jadwal');
+  const [activeTab, setActiveTab] = useState<'jadwal' | 'tugas' | 'pedoman' | 'admin'>('jadwal');
+  const [selectedGuidelineId, setSelectedGuidelineId] = useState<string>('sistematika-makalah');
   
   // Detail Course Tab
   const [detailTab, setDetailTab] = useState<'info' | 'tugas' | 'kelompok' | 'ai'>('info');
   const [activePdfIndex, setActivePdfIndex] = useState<number>(0);
+  const [groupCategoryFilter, setGroupCategoryFilter] = useState<'all' | 'diskusi' | 'jurnal' | 'artikel'>('all');
+  const [groupSearchQuery, setGroupSearchQuery] = useState<string>('');
+
+  // Agenda & Calendar Filters for Semua Tugas Tab
+  const [agendaFilterDay, setAgendaFilterDay] = useState<'all' | 'Jumat' | 'Sabtu'>('all');
+  const [agendaFilterStatus, setAgendaFilterStatus] = useState<'all' | 'Belum' | 'Selesai'>('all');
+  const [agendaSearchQuery, setAgendaSearchQuery] = useState<string>('');
+  const [tugasSubTab, setTugasSubTab] = useState<'agenda' | 'tugas'>('agenda');
 
   // ADMIN AUTH & ROLE SYSTEM
   const [adminPIN, setAdminPIN] = useState<string>('');
@@ -127,21 +163,7 @@ function MainApp() {
   const [showDirectAIModal, setShowDirectAIModal] = useState(false);
   const [directAIText, setDirectAIText] = useState('');
   const [isDirectAnalyzing, setIsDirectAnalyzing] = useState(false);
-
-  // AI & Admin State
-  const [syllabusText, setSyllabusText] = useState('');
-  const [uploadedPdfUrl, setUploadedPdfUrl] = useState<string | null>(null);
-  const [uploadedPdfName, setUploadedPdfName] = useState<string>('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [extractedDraft, setExtractedDraft] = useState<Partial<Course> | null>(null);
-  const [targetCourseForUpload, setTargetCourseForUpload] = useState<string>(courses[0]?.id || 'hmpi');
-
-  // Bulk Upload State (3 Slots)
-  const [bulkSlots, setBulkSlots] = useState<{ courseId: string; file: File | null }[]>([
-    { courseId: courses[0]?.id || 'hmpi', file: null },
-    { courseId: courses[1]?.id || 'fmpi', file: null },
-    { courseId: courses[2]?.id || 'pmpi', file: null },
-  ]);
+  const [selectedPjCourseId, setSelectedPjCourseId] = useState<string>(courses[0]?.id || 'hmpi');
 
   // Helper to normalize PDF files list per course
   const getCoursePdfs = (course: Course): SyllabusFile[] => {
@@ -171,6 +193,26 @@ function MainApp() {
           const merged = mergeWithDefaults(data.data);
           setCourses(merged);
           localStorage.setItem('mps2_courses', JSON.stringify(merged));
+          
+          // If Supabase cloud store had old nicknames or fewer groups than official INITIAL_COURSES
+          const needsCloudSync = data.data.some((c: any) => {
+            const init = INITIAL_COURSES.find(ic => ic.id === c.id);
+            if (!init) return false;
+            const hasOldNicknames = Array.isArray(c.groups) && c.groups.some((g: any) => 
+              Array.isArray(g.members) && g.members.some((m: string) => typeof m === 'string' && (m.startsWith('Pak ') || m.startsWith('Bu ') || m.startsWith('Buk ')))
+            );
+            const fewerGroupsThanOfficial = (init.groups?.length || 0) > (c.groups?.length || 0);
+            const hasPlaceholderTopic = Array.isArray(c.groups) && c.groups.some((g: any) => 
+              g && g.topic === 'Diskusi & Presentasi Makalah Tafsir Manajemen Pendidikan Islam'
+            );
+            return hasOldNicknames || fewerGroupsThanOfficial || hasPlaceholderTopic;
+          });
+          if (needsCloudSync) {
+            supabase.from('mps2_store').upsert({ id: 'courses_data', data: merged, updated_at: new Date().toISOString() }).then(() => {
+              console.log("Supabase successfully synced with updated official groups and full names.");
+            });
+          }
+
           setIsSyncedWithSupabase(true);
         } else if (error) {
           console.warn("Supabase initial fetch notice:", error.message);
@@ -254,86 +296,7 @@ function MainApp() {
     }
   };
 
-  // File PDF Upload Handler (Single)
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadedPdfName(file.name);
-      try {
-        const dataUrl = await readFileAsDataUrl(file);
-        setUploadedPdfUrl(dataUrl);
-      } catch {
-        setUploadedPdfUrl(URL.createObjectURL(file));
-      }
-    }
-  };
 
-  const handleBulkSlotFile = (index: number, file: File | null) => {
-    setBulkSlots(prev => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], file };
-      return copy;
-    });
-  };
-
-  const handleBulkSlotCourse = (index: number, courseId: string) => {
-    setBulkSlots(prev => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], courseId };
-      return copy;
-    });
-  };
-
-  const handleSaveBulkSlots = async () => {
-    const validSlots = bulkSlots.filter(s => s.file !== null);
-    if (validSlots.length === 0) {
-      alert('Silakan pilih minimal 1 file PDF silabus!');
-      return;
-    }
-
-    const processedSlots = await Promise.all(
-      validSlots.map(async slot => ({
-        courseId: slot.courseId,
-        pdfFileName: slot.file!.name,
-        syllabusPdfUrl: await readFileAsDataUrl(slot.file!)
-      }))
-    );
-
-    setCourses(prev => prev.map(c => {
-      const matchedSlot = processedSlots.find(s => s.courseId === c.id);
-      if (matchedSlot) {
-        const currentPdfs = getCoursePdfs(c);
-        const newPdf: SyllabusFile = {
-          id: `pdf-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          name: matchedSlot.pdfFileName,
-          url: matchedSlot.syllabusPdfUrl
-        };
-        const updatedList = [...currentPdfs, newPdf];
-        return {
-          ...c,
-          syllabusPdfUrl: updatedList[0]?.url,
-          pdfFileName: updatedList[0]?.name,
-          syllabusPdfs: updatedList,
-          syllabusSummary: c.syllabusSummary === 'Upload silabus mata kuliah ini melalui Panel Admin untuk menampilkan deskripsi perkuliahan.'
-            ? `File silabus PDF ${matchedSlot.pdfFileName} telah diunggah.`
-            : c.syllabusSummary
-        };
-      }
-      return c;
-    }));
-
-    // Reset Slots
-    setBulkSlots([
-      { courseId: courses[0]?.id || 'hmpi', file: null },
-      { courseId: courses[1]?.id || 'fmpi', file: null },
-      { courseId: courses[2]?.id || 'pmpi', file: null },
-    ]);
-    alert(`Berhasil menyimpan ${validSlots.length} silabus sekaligus! Data tersimpan di Cloud Supabase & dapat diakses semua mahasiswa.`);
-  };
-
-  const handleAddBulkSlot = () => {
-    setBulkSlots(prev => [...prev, { courseId: courses[0]?.id || 'hmpi', file: null }]);
-  };
 
   // Backup & Reset Functionality
   const handleExportData = () => {
@@ -407,6 +370,27 @@ function MainApp() {
     (c.tasks || []).map(t => ({ ...t, courseName: c.name, courseCode: c.code, courseTheme: c.colorTheme }))
   );
 
+  // Construct unified presentations & agendas across all courses for calendar synchronization
+  const allAgendas = courses.flatMap(c => 
+    (c.groups || []).map((g, idx) => ({
+      id: `${c.id}-group-${idx}`,
+      courseId: c.id,
+      courseCode: c.code,
+      courseName: c.name,
+      day: c.day,
+      time: c.time,
+      room: c.room,
+      groupIndex: idx,
+      name: g.name,
+      topic: g.topic,
+      members: g.members || [],
+      status: (g.status === 'Selesai' ? 'Selesai' : 'Belum') as 'Belum' | 'Selesai',
+      completedAt: g.completedAt,
+      courseTheme: c.colorTheme,
+      isJurnalOrArtikel: g.name.toLowerCase().includes('jurnal') || g.name.toLowerCase().includes('artikel'),
+    }))
+  );
+
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (adminPIN === '12345') {
@@ -461,56 +445,7 @@ function MainApp() {
     }, 1200);
   };
 
-  const handleSimulateAIParse = () => {
-    if (!syllabusText.trim()) return;
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      setExtractedDraft({
-        syllabusSummary: `[Hasil Ekstraksi AI] Silabus menekankan pada pemahaman teori dasar, penulisan artikel ilmiah, dan presentasi kelompok mingguan.`,
-        tasks: [
-          {
-            id: 'ai-task-1',
-            title: 'Presentasi Makalah Kelompok Topik 3',
-            description: 'Menyusun slide ppt dan makalah analisis dari silabus bab 3.',
-            deadline: '2026-09-30T23:59',
-            type: 'Kelompok',
-            status: 'Belum'
-          }
-        ]
-      });
-    }, 1200);
-  };
 
-  const handleSaveExtractedDraft = () => {
-    setCourses(prev => prev.map(c => {
-      if (c.id === targetCourseForUpload) {
-        const currentPdfs = getCoursePdfs(c);
-        let updatedPdfs = [...currentPdfs];
-        if (uploadedPdfUrl) {
-          updatedPdfs.push({
-            id: `pdf-${Date.now()}`,
-            name: uploadedPdfName || `Silabus_${c.code}_${updatedPdfs.length + 1}.pdf`,
-            url: uploadedPdfUrl
-          });
-        }
-        return {
-          ...c,
-          syllabusSummary: extractedDraft?.syllabusSummary || syllabusText || c.syllabusSummary || 'Silabus PDF telah diunggah.',
-          syllabusPdfUrl: updatedPdfs[0]?.url,
-          pdfFileName: updatedPdfs[0]?.name,
-          syllabusPdfs: updatedPdfs,
-          tasks: extractedDraft?.tasks ? [...(c.tasks || []), ...extractedDraft.tasks] : (c.tasks || [])
-        };
-      }
-      return c;
-    }));
-    setExtractedDraft(null);
-    setSyllabusText('');
-    setUploadedPdfUrl(null);
-    setUploadedPdfName('');
-    alert('Data silabus & dokumen PDF berhasil disimpan ke mata kuliah!');
-  };
 
   const handleDeleteSinglePdf = (courseId: string, pdfId: string) => {
     if (window.confirm("Apakah Anda yakin ingin menghapus file PDF silabus ini?")) {
@@ -653,22 +588,57 @@ function MainApp() {
   };
 
   const handleToggleTaskStatus = (courseId: string, taskId: string) => {
-    setCourses(prev => prev.map(c => {
-      if (c.id === courseId) {
-        return {
-          ...c,
-          tasks: (c.tasks || []).map(t => {
-            if (t.id === taskId) {
-              const nextStatus: 'Belum' | 'Proses' | 'Selesai' = 
-                t.status === 'Belum' ? 'Proses' : t.status === 'Proses' ? 'Selesai' : 'Belum';
-              return { ...t, status: nextStatus };
-            }
-            return t;
-          })
-        };
-      }
-      return c;
-    }));
+    setCourses(prev => {
+      const updated = prev.map(c => {
+        if (c.id === courseId) {
+          return {
+            ...c,
+            tasks: (c.tasks || []).map(t => {
+              if (t.id === taskId) {
+                const nextStatus: 'Belum' | 'Proses' | 'Selesai' = 
+                  t.status === 'Belum' ? 'Proses' : t.status === 'Proses' ? 'Selesai' : 'Belum';
+                return { ...t, status: nextStatus };
+              }
+              return t;
+            })
+          };
+        }
+        return c;
+      });
+      localStorage.setItem('mps2_courses', JSON.stringify(updated));
+      supabase.from('mps2_store').upsert({ id: 'courses_data', data: updated, updated_at: new Date().toISOString() });
+      return updated;
+    });
+  };
+
+  const handleToggleGroupStatus = (courseId: string, groupIndex: number) => {
+    if (!isLoggedInAdmin) {
+      alert('Hanya Kosma / Admin yang dapat menandai penyelesaian presentasi kelompok.');
+      return;
+    }
+    setCourses(prev => {
+      const updated = prev.map(c => {
+        if (c.id === courseId) {
+          const updatedGroups = [...(c.groups || [])];
+          const target = updatedGroups[groupIndex];
+          if (target) {
+            const nextStatus: 'Belum' | 'Selesai' = target.status === 'Selesai' ? 'Belum' : 'Selesai';
+            updatedGroups[groupIndex] = {
+              ...target,
+              status: nextStatus,
+              completedAt: nextStatus === 'Selesai' ? new Date().toISOString() : undefined,
+            };
+          }
+          return { ...c, groups: updatedGroups };
+        }
+        return c;
+      });
+      localStorage.setItem('mps2_courses', JSON.stringify(updated));
+      supabase.from('mps2_store').upsert({ id: 'courses_data', data: updated, updated_at: new Date().toISOString() }).then(() => {
+        console.log('Group status successfully synchronized with Supabase cloud');
+      });
+      return updated;
+    });
   };
 
   const handleAIChat = () => {
@@ -688,109 +658,9 @@ function MainApp() {
     }, 800);
   };
 
-  return (
-    <div className={`min-h-screen transition-colors duration-200 font-sans ${darkMode ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-900'}`}>
-      
-      {/* HEADER / NAVIGATION (OPTIMIZED FOR SMALL MOBILE SCREENS LIKE IPHONE 13 MINI & OLDER ANDROIDS) */}
-      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${darkMode ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200'}`}>
-        <div className="max-w-md md:max-w-3xl mx-auto px-3 py-2 flex items-center justify-between gap-1">
-          
-          {/* Logo & Title */}
-          <div className="flex items-center gap-1.5 cursor-pointer shrink-0" onClick={() => setSelectedCourseId(null)}>
-            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-extrabold flex items-center justify-center text-base shadow-xs shrink-0">
-              S2
-            </div>
-            <div className="shrink-0">
-              <h1 className="font-extrabold text-sm sm:text-base leading-none tracking-tight">Portal MPS2</h1>
-              <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-tight mt-0.5">Magister Pend. Islam</p>
-            </div>
-          </div>
-
-          {/* Controls & Badges */}
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Status Cloud Sync Badge */}
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 shrink-0 ${
-              isSyncedWithSupabase 
-                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' 
-                : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
-            }`}>
-              <Database className="w-2.5 h-2.5" />
-              <span>{isSyncedWithSupabase ? 'Cloud Sync' : 'Local'}</span>
-            </span>
-
-            {/* Tombol KOSMA Admin */}
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`px-2 py-1 rounded-xl border text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
-                activeTab === 'admin' || isLoggedInAdmin
-                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
-                  : darkMode
-                  ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
-                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Lock className="w-3 h-3" />
-              <span>{isLoggedInAdmin ? 'Kosma' : 'Kosma'}</span>
-            </button>
-
-            {/* Mode Siang/Malam (Icon Only on Small Screens) */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-1.5 rounded-xl border transition-all text-xs font-semibold flex items-center shrink-0 ${
-                darkMode 
-                  ? 'bg-gray-800 border-gray-700 text-amber-400 hover:bg-gray-700' 
-                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
-              }`}
-              aria-label="Toggle Theme"
-            >
-              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-
-        </div>
-
-        {/* TOP TAB NAV (MAIN SCREEN) */}
-        <div className="max-w-md md:max-w-3xl mx-auto px-3 flex border-t border-slate-200/60 dark:border-gray-800">
-          <button
-            onClick={() => {
-              setActiveTab('jadwal');
-              setSelectedCourseId(null);
-            }}
-            className={`flex-1 py-2.5 text-xs sm:text-sm font-bold border-b-2 text-center transition-colors flex items-center justify-center gap-1.5 ${
-              activeTab === 'jadwal' && !selectedCourseId
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-800'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            Jadwal Matkul
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('tugas');
-              setSelectedCourseId(null);
-            }}
-            className={`flex-1 py-2.5 text-xs sm:text-sm font-bold border-b-2 text-center transition-colors flex items-center justify-center gap-1.5 ${
-              activeTab === 'tugas' && !selectedCourseId
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-800'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            Semua Tugas
-            {allTasks.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-full font-bold">
-                {allTasks.length}
-              </span>
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* MAIN CONTAINER (WITH EXTRA PB-28 TO PREVENT NETLIFY BADGE / SAFARI BAR OVERLAP) */}
-      <main className="max-w-md md:max-w-3xl mx-auto px-3 py-4 pb-28 sm:pb-12 space-y-4">
-
-        {/* 1. VIEW DETAILED COURSE */}
+  const renderMainContent = () => (
+    <>
+      {/* 1. VIEW DETAILED COURSE */}
         {selectedCourse ? (
           <div className="space-y-4 animate-fadeIn">
             {/* Header Detail Matkul */}
@@ -831,9 +701,21 @@ function MainApp() {
               </div>
 
               {selectedCourse.pjName && (
-                <div className="mt-3 text-xs font-medium opacity-90 flex items-center gap-1.5">
-                  <UserCheck className="w-4 h-4 shrink-0" />
-                  <span>PJ: {selectedCourse.pjName} ({selectedCourse.pjContact})</span>
+                <div className="mt-3 pt-2.5 border-t border-current/20 text-xs font-medium opacity-90 flex items-center justify-between gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <UserCheck className="w-4 h-4 shrink-0" />
+                    <span>PJ Matkul: <strong>{selectedCourse.pjName}</strong> ({selectedCourse.pjContact})</span>
+                  </div>
+                  {selectedCourse.pjContact && (
+                    <a
+                      href={`https://wa.me/${selectedCourse.pjContact.replace(/[^0-9]/g, '').replace(/^0/, '62')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px] flex items-center gap-1 hover:bg-emerald-700 transition-all shadow-xs"
+                    >
+                      💬 WhatsApp PJ
+                    </a>
+                  )}
                 </div>
               )}
             </div>
@@ -873,23 +755,65 @@ function MainApp() {
                   <h3 className="font-bold text-sm flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                     <BookOpen className="w-4 h-4" /> Ringkasan Silabus Perkuliahan
                   </h3>
-                  {isLoggedInAdmin ? (
-                    <button
-                      onClick={() => setShowDirectAIModal(true)}
-                      className="px-2.5 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs font-bold flex items-center gap-1 transition-all"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> + Ekstrak AI
-                    </button>
-                  ) : (
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-amber-500" /> Khusus Admin Kosma
-                    </span>
-                  )}
                 </div>
                 
                 <p className="text-xs sm:text-sm text-slate-700 dark:text-gray-300 leading-relaxed">
                   {selectedCourse.syllabusSummary}
                 </p>
+
+                {/* Course-Specific Blueprint / Guideline */}
+                {selectedCourse.guidelineSections && selectedCourse.guidelineSections.length > 0 && (
+                  <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-gray-800">
+                    <h4 className="font-extrabold text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1.5 uppercase tracking-wide">
+                      <Sparkles className="w-3.5 h-3.5" /> Blueprint & Ketentuan Penugasan Khusus {selectedCourse.code}
+                    </h4>
+                    {selectedCourse.guidelineSections.map((sec, idx) => (
+                      <div key={idx} className={`p-3 rounded-xl border ${darkMode ? 'bg-purple-950/30 border-purple-800/50' : 'bg-purple-50/70 border-purple-200/70'} space-y-1.5 text-xs`}>
+                        <div className="font-bold text-purple-900 dark:text-purple-200">{sec.heading}</div>
+                        <ul className="space-y-1 text-slate-700 dark:text-purple-100/90 font-medium">
+                          {sec.items.map((item, iidx) => (
+                            <li key={iidx} className="flex items-start gap-1.5">
+                              <span className="text-purple-600 dark:text-purple-400 font-bold">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setActiveTab('pedoman');
+                      setSelectedGuidelineId('sistematika-makalah');
+                      setSelectedCourseId(null);
+                    }}
+                    className="py-2.5 px-3 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-bold flex items-center justify-between transition-all shadow-2xs"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="truncate">Sistematika Penulisan Makalah</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('pedoman');
+                      setSelectedGuidelineId('artikel-jurnal');
+                      setSelectedCourseId(null);
+                    }}
+                    className="py-2.5 px-3 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 border border-purple-200 dark:border-purple-800 text-purple-800 dark:text-purple-200 rounded-xl text-xs font-bold flex items-center justify-between transition-all shadow-2xs"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <BookOpen className="w-4 h-4 text-purple-600 shrink-0" />
+                      <span className="truncate">Pedoman Penulisan Artikel 2026</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />
+                  </button>
+                </div>
 
                 {/* PDF PREVIEW & DOWNLOAD SECTION (MOBILE OPTIMIZED) */}
                 {selectedCoursePdfs.length > 0 ? (
@@ -940,13 +864,23 @@ function MainApp() {
                             </div>
                           </div>
 
-                          {/* Primary Full-Width Action Button for Mobile & Desktop */}
-                          <button
-                            onClick={() => handleOpenPdfFullscreen(activePdf)}
-                            className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99]"
-                          >
-                            <BookOpen className="w-4 h-4" /> 📖 Buka Seluruh Halaman PDF (In-App Fullscreen)
-                          </button>
+                          {/* Action Buttons Bar */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button
+                              onClick={() => handleOpenPdfFullscreen(activePdf)}
+                              className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-[0.99]"
+                            >
+                              <BookOpen className="w-4 h-4" /> 📖 Baca Fullscreen In-App
+                            </button>
+                            <a
+                              href={activePdf.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-[0.99]"
+                            >
+                              <ExternalLink className="w-4 h-4" /> ↗ Buka Tab Baru / App HP
+                            </a>
+                          </div>
 
                           {/* Controls Bar */}
                           <div className="p-3 rounded-2xl bg-slate-100 dark:bg-gray-800/90 border border-slate-200/80 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
@@ -961,28 +895,62 @@ function MainApp() {
                                 download={activePdf.name}
                                 className="w-full sm:w-auto px-4 py-2 bg-slate-800 dark:bg-gray-700 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                               >
-                                <Download className="w-3.5 h-3.5" /> Unduh File PDF
+                                <Download className="w-3.5 h-3.5" /> Unduh PDF
                               </a>
                             </div>
                           </div>
 
-                          {/* Responsive PDF Viewer Frame */}
+                          {/* Blank-Proof PDF Viewer Frame with Triple Fallback */}
                           <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-gray-700 bg-slate-100 dark:bg-gray-800 h-[380px] sm:h-[500px]">
-                            <iframe 
-                              src={activePdf.url} 
-                              title={activePdf.name} 
+                            <object 
+                              data={activePdf.url} 
+                              type="application/pdf" 
                               className="w-full h-full border-none"
-                            />
-                            
-                            {/* Mobile Floating Action Badge */}
-                            <div className="sm:hidden absolute bottom-2 left-2 right-2 p-2 bg-slate-900/90 backdrop-blur-xs text-white text-[11px] font-semibold rounded-xl flex items-center justify-between gap-2 shadow-lg border border-slate-700">
-                              <span className="truncate">Ingin baca semua halaman?</span>
-                              <button
-                                onClick={() => handleOpenPdfFullscreen(activePdf)}
-                                className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg shrink-0 text-xs flex items-center gap-1"
+                            >
+                              <iframe 
+                                src={activePdf.url} 
+                                title={activePdf.name} 
+                                className="w-full h-full border-none"
                               >
-                                Buka Full PDF ↗
-                              </button>
+                                {/* In-frame Fallback if both object and iframe are blocked by browser */}
+                                <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-3 bg-slate-50 dark:bg-gray-900">
+                                  <FileText className="w-12 h-12 text-emerald-500 animate-pulse" />
+                                  <p className="font-bold text-sm text-slate-800 dark:text-gray-200">Pratinjau PDF Membutuhkan Akses Langsung</p>
+                                  <p className="text-xs text-slate-500 dark:text-gray-400 max-w-sm">
+                                    Browser perangkat Anda mengamankan pratinjau dokumen PDF internal. Silakan buka dokumen secara langsung:
+                                  </p>
+                                  <div className="flex flex-wrap gap-2 justify-center pt-2">
+                                    <a
+                                      href={activePdf.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
+                                    >
+                                      <ExternalLink className="w-4 h-4" /> Buka Tab Baru / App PDF
+                                    </a>
+                                    <a
+                                      href={activePdf.url}
+                                      download={activePdf.name}
+                                      className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
+                                    >
+                                      <Download className="w-4 h-4" /> Unduh File
+                                    </a>
+                                  </div>
+                                </div>
+                              </iframe>
+                            </object>
+                            
+                            {/* Mobile Floating Quick-Assist Badge */}
+                            <div className="sm:hidden absolute bottom-2 left-2 right-2 p-2 bg-slate-900/90 backdrop-blur-xs text-white text-[11px] font-semibold rounded-xl flex items-center justify-between gap-2 shadow-lg border border-slate-700">
+                              <span className="truncate">Layar blank atau ingin baca semua?</span>
+                              <a
+                                href={activePdf.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shrink-0 text-xs flex items-center gap-1"
+                              >
+                                Tab Baru ↗
+                              </a>
                             </div>
                           </div>
                         </div>
@@ -991,8 +959,8 @@ function MainApp() {
                   </div>
                 ) : (
                   <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/50 text-center space-y-1">
-                    <p className="text-xs font-bold text-slate-600 dark:text-gray-400">Belum ada file PDF silabus resmi (Dapat mengunggah banyak file PDF tanpa batasan).</p>
-                    <p className="text-[11px] text-slate-500 dark:text-gray-500">Kosma dapat mengunggah silabus PDF melalui tombol Ekstrak AI atau Panel Admin Kosma.</p>
+                    <p className="text-xs font-bold text-slate-600 dark:text-gray-400">Silabus & Ringkasan Perkuliahan Telah Terisi Resmi</p>
+                    <p className="text-[11px] text-slate-500 dark:text-gray-500">Ringkasan silabus, tugas, dan kelompok mata kuliah ini sudah langsung terintegrasi tanpa perlu unggah manual oleh Kosma.</p>
                   </div>
                 )}
               </div>
@@ -1082,69 +1050,234 @@ function MainApp() {
               </div>
             )}
 
-            {detailTab === 'kelompok' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm">Daftar Pembagian Kelompok</h3>
-                  {isLoggedInAdmin ? (
-                    <button
-                      onClick={() => setShowAddGroupModal(true)}
-                      className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition-colors shadow-xs"
-                    >
-                      <Plus className="w-4 h-4" /> Tambah Kelompok
-                    </button>
+            {detailTab === 'kelompok' && (() => {
+              const allGroups = selectedCourse.groups || [];
+              const diskusiGroups = allGroups.filter(g => g.name.toLowerCase().includes('diskusi'));
+              const artikelOrJurnalGroups = allGroups.filter(g => g.name.toLowerCase().includes('jurnal') || g.name.toLowerCase().includes('artikel'));
+              const hasSubCategories = diskusiGroups.length > 0 && artikelOrJurnalGroups.length > 0;
+              const isArtikelType = artikelOrJurnalGroups.some(g => g.name.toLowerCase().includes('artikel'));
+              const secondaryTabLabel = isArtikelType ? 'Kelompok Artikel' : 'Kelompok Jurnal';
+
+              const filteredGroups = allGroups.filter(g => {
+                if (hasSubCategories) {
+                  if (groupCategoryFilter === 'diskusi' && !g.name.toLowerCase().includes('diskusi')) return false;
+                  if ((groupCategoryFilter === 'jurnal' || groupCategoryFilter === 'artikel') && !g.name.toLowerCase().includes('jurnal') && !g.name.toLowerCase().includes('artikel')) return false;
+                }
+                if (!groupSearchQuery.trim()) return true;
+                const q = groupSearchQuery.toLowerCase();
+                const nameMatch = g.name.toLowerCase().includes(q);
+                const topicMatch = (g.topic || '').toLowerCase().includes(q);
+                const memberMatch = (g.members || []).some(m => m.toLowerCase().includes(q));
+                return nameMatch || topicMatch || memberMatch;
+              });
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h3 className="font-bold text-sm flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Daftar Pembagian Kelompok ({allGroups.length})</span>
+                    </h3>
+                    {isLoggedInAdmin ? (
+                      <button
+                        onClick={() => setShowAddGroupModal(true)}
+                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition-colors shadow-xs"
+                      >
+                        <Plus className="w-4 h-4" /> Tambah Kelompok
+                      </button>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                        <Lock className="w-3 h-3 text-amber-500" /> Khusus Admin Kosma
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Sub-Category Pills for courses with multiple group types (e.g. FMPI, TMPI) */}
+                  {hasSubCategories && (
+                    <div className="flex items-center gap-2 p-1 rounded-xl bg-slate-100 dark:bg-gray-800/80 border border-slate-200/80 dark:border-gray-700/80 overflow-x-auto text-xs font-bold">
+                      <button
+                        onClick={() => setGroupCategoryFilter('all')}
+                        className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                          groupCategoryFilter === 'all'
+                            ? 'bg-white dark:bg-gray-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        Semua ({allGroups.length})
+                      </button>
+                      <button
+                        onClick={() => setGroupCategoryFilter('diskusi')}
+                        className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                          groupCategoryFilter === 'diskusi'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400'
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        Kelompok Diskusi ({diskusiGroups.length})
+                      </button>
+                      <button
+                        onClick={() => setGroupCategoryFilter(isArtikelType ? 'artikel' : 'jurnal')}
+                        className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                          (groupCategoryFilter === 'jurnal' || groupCategoryFilter === 'artikel')
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        {secondaryTabLabel} ({artikelOrJurnalGroups.length})
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Quick Search bar for members and topics */}
+                  {allGroups.length > 0 && (
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Cari nama mahasiswa atau topik kelompok..."
+                        value={groupSearchQuery}
+                        onChange={e => setGroupSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-gray-100"
+                      />
+                      {groupSearchQuery && (
+                        <button 
+                          onClick={() => setGroupSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 font-bold"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {allGroups.length === 0 ? (
+                    <div className={`p-8 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
+                      <Users className="w-8 h-8 text-purple-500 mx-auto mb-2 opacity-50" />
+                      <p className="text-xs font-semibold text-slate-500 dark:text-gray-400">Pembagian kelompok belum diisi oleh Kosma.</p>
+                    </div>
+                  ) : filteredGroups.length === 0 ? (
+                    <div className={`p-6 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
+                      <p className="text-xs text-slate-500 dark:text-gray-400">Tidak ada kelompok yang sesuai dengan pencarian "{groupSearchQuery}".</p>
+                    </div>
                   ) : (
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-amber-500" /> Khusus Admin Kosma
-                    </span>
+                    filteredGroups.map((group) => {
+                      const isSpecialType = group.name.toLowerCase().includes('jurnal') || group.name.toLowerCase().includes('artikel');
+                      const isArtikel = group.name.toLowerCase().includes('artikel');
+                      const originalIdx = allGroups.indexOf(group);
+
+                      return (
+                        <div 
+                          key={`${group.name}-${originalIdx}`} 
+                          className={`p-4 rounded-2xl border ${
+                            isSpecialType 
+                              ? darkMode ? 'bg-gray-900 border-purple-900/40 hover:border-purple-500/60' : 'bg-white border-purple-100 hover:border-purple-300'
+                              : darkMode ? 'bg-gray-900 border-gray-800 hover:border-emerald-500/50' : 'bg-white border-slate-200 hover:border-emerald-300'
+                          } space-y-2.5 shadow-2xs transition-all`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+                              isSpecialType
+                                ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-900 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            }`}>
+                              {isSpecialType ? (
+                                <FileText className="w-3 h-3 text-purple-600 shrink-0" />
+                              ) : (
+                                <Users className="w-3 h-3 text-emerald-600 shrink-0" />
+                              )}
+                              <span>{group.name}</span>
+                            </span>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                group.status === 'Selesai'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                  : 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80'
+                              }`}>
+                                {group.status === 'Selesai' ? (
+                                  <>
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                    <span>Selesai</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clock className="w-3 h-3 text-amber-600" />
+                                    <span>Belum</span>
+                                  </>
+                                )}
+                              </span>
+
+                              {isLoggedInAdmin && (
+                                <>
+                                  <button
+                                    onClick={() => handleToggleGroupStatus(selectedCourse.id, originalIdx)}
+                                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all shadow-2xs flex items-center gap-1 ${
+                                      group.status === 'Selesai'
+                                        ? 'bg-slate-200 hover:bg-slate-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    }`}
+                                    title={group.status === 'Selesai' ? 'Batal Selesai' : 'Tandai Selesai Presentasi'}
+                                  >
+                                    {group.status === 'Selesai' ? '↺ Batal' : '✓ Selesai'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteGroup(selectedCourse.id, originalIdx)}
+                                    className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors shrink-0"
+                                    title="Hapus Kelompok"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {group.topic && (
+                            <div className={`p-2.5 rounded-xl border text-xs leading-relaxed space-y-0.5 ${
+                              isSpecialType 
+                                ? 'bg-purple-50/50 dark:bg-purple-950/30 border-purple-200/50 dark:border-purple-900/50' 
+                                : 'bg-slate-50 dark:bg-gray-800/70 border-slate-200/70 dark:border-gray-700/70'
+                            }`}>
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-gray-400 block">
+                                {isSpecialType ? (isArtikel ? 'Fokus Penulisan Artikel Jurnal SINTA 3:' : 'Topik Penulisan Artikel Jurnal:') : 'Topik Pembahasan / Makalah:'}
+                              </span>
+                              <p className="font-bold text-slate-800 dark:text-gray-100">
+                                {group.topic}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500">
+                              {isSpecialType ? 'Penulis / Anggota:' : 'Presenter / Anggota:'}
+                            </span>
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {(group.members || []).map((member, mIdx) => (
+                                <span 
+                                  key={mIdx}
+                                  className={`px-2.5 py-1 text-xs rounded-lg font-semibold border flex items-center gap-1 ${
+                                    isSpecialType
+                                      ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-200/80 dark:border-purple-800/80 text-purple-900 dark:text-purple-200'
+                                      : 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/80 text-emerald-900 dark:text-emerald-200'
+                                  }`}
+                                >
+                                  <span className={isSpecialType ? "text-purple-600 dark:text-purple-400 font-bold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
+                                    {isSpecialType ? '✍️' : '👤'}
+                                  </span>
+                                  <span>{member}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
-
-                {!(selectedCourse.groups && selectedCourse.groups.length > 0) ? (
-                  <div className={`p-8 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
-                    <Users className="w-8 h-8 text-purple-500 mx-auto mb-2 opacity-50" />
-                    <p className="text-xs font-semibold text-slate-500 dark:text-gray-400">Pembagian kelompok belum diisi oleh Kosma.</p>
-                  </div>
-                ) : (
-                  selectedCourse.groups.map((group, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`p-4 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-2`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-sm text-emerald-600 dark:text-emerald-400">{group.name}</h4>
-                        <div className="flex items-center gap-2">
-                          {group.topic && (
-                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400">
-                              {group.topic}
-                            </span>
-                          )}
-                          {isLoggedInAdmin && (
-                            <button
-                              onClick={() => handleDeleteGroup(selectedCourse.id, idx)}
-                              className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors"
-                              title="Hapus Kelompok"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {(group.members || []).map((member, mIdx) => (
-                          <span 
-                            key={mIdx}
-                            className="px-2.5 py-1 text-xs rounded-lg font-medium bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300"
-                          >
-                            👤 {member}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+              );
+            })()}
 
             {detailTab === 'ai' && (
               <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-3`}>
@@ -1360,52 +1493,507 @@ function MainApp() {
               </div>
             )}
 
-            {/* 3. SEMUA TUGAS OVERVIEW */}
-            {activeTab === 'tugas' && (
-              <div className="space-y-4">
-                <h3 className="font-bold text-sm sm:text-base flex items-center gap-2">
-                  <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" /> Ringkasan Seluruh Tugas Semester 2
-                </h3>
+            {/* 3. KALENDER AGENDA PERKULIAHAN & TUGAS */}
+            {activeTab === 'tugas' && (() => {
+              const pendingCount = allAgendas.filter(a => a.status !== 'Selesai').length;
+              const completedCount = allAgendas.filter(a => a.status === 'Selesai').length;
 
-                {allTasks.length === 0 ? (
-                  <div className={`p-8 sm:p-10 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
-                    <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-50" />
-                    <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-gray-400">Tidak ada tugas terdaftar di semua mata kuliah.</p>
-                  </div>
-                ) : (
-                  allTasks.map(task => (
-                    <div 
-                      key={task.id}
-                      className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
-                        darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                            {task.courseCode} - {task.courseName}
-                          </span>
-                          <h4 className="font-bold text-sm mt-1.5">{task.title}</h4>
-                          <p className="text-xs text-slate-600 dark:text-gray-400 mt-1 leading-relaxed">{task.description}</p>
-                          
-                          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-gray-400 mt-2">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5" />
-                              Deadline: {new Date(task.deadline).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
-                            </span>
-                            <span className="font-bold text-purple-600 dark:text-purple-400">[{task.type}]</span>
-                          </div>
+              const filteredAgendas = allAgendas.filter(agenda => {
+                if (agendaFilterDay !== 'all' && agenda.day !== agendaFilterDay) return false;
+                if (agendaFilterStatus === 'Belum' && agenda.status === 'Selesai') return false;
+                if (agendaFilterStatus === 'Selesai' && agenda.status !== 'Selesai') return false;
+                if (!agendaSearchQuery.trim()) return true;
+                const q = agendaSearchQuery.toLowerCase();
+                const matchCourse = agenda.courseName.toLowerCase().includes(q) || agenda.courseCode.toLowerCase().includes(q);
+                const matchGroup = agenda.name.toLowerCase().includes(q);
+                const matchTopic = (agenda.topic || '').toLowerCase().includes(q);
+                const matchMember = (agenda.members || []).some(m => m.toLowerCase().includes(q));
+                return matchCourse || matchGroup || matchTopic || matchMember;
+              });
+
+              return (
+                <div className="space-y-4 animate-fadeIn">
+                  {/* Banner Header */}
+                  <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gradient-to-br from-emerald-950/80 to-gray-900 border-emerald-800/50' : 'bg-gradient-to-br from-emerald-50 via-white to-teal-50 border-emerald-200'} shadow-xs`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 sm:p-3 rounded-2xl bg-emerald-600 text-white shrink-0 shadow-xs">
+                          <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
-
-                        <span className={`px-2 py-0.5 text-[10px] sm:text-[11px] font-extrabold rounded-lg shrink-0 ${
-                          task.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                        }`}>
-                          {task.status}
-                        </span>
+                        <div>
+                          <span className="text-[10px] font-extrabold tracking-wider uppercase px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                            Sinkronisasi Kalender & Tugas
+                          </span>
+                          <h2 className="text-base sm:text-lg font-extrabold mt-1 text-slate-800 dark:text-white">
+                            Agenda Presentasi & Tugas Perkuliahan
+                          </h2>
+                          <p className="text-xs text-slate-600 dark:text-gray-300 mt-0.5 leading-relaxed">
+                            Jadwal mingguan mata kuliah, topik materi, kelompok presenter, dan tombol kendali Kosma untuk menandai status selesai.
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  ))
-                )}
+
+                    {/* Sub-Tab Selector: Agenda Presentasi vs Tugas Mandiri */}
+                    <div className="mt-4 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/60 flex items-center gap-2 overflow-x-auto">
+                      <button
+                        onClick={() => setTugasSubTab('agenda')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                          tugasSubTab === 'agenda'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white/80 dark:bg-gray-800/80 text-slate-600 dark:text-gray-400 hover:text-emerald-600'
+                        }`}
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>Timeline Presentasi ({allAgendas.length})</span>
+                        {pendingCount > 0 && (
+                          <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[10px] rounded-full">
+                            {pendingCount}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => setTugasSubTab('tugas')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                          tugasSubTab === 'tugas'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white/80 dark:bg-gray-800/80 text-slate-600 dark:text-gray-400 hover:text-emerald-600'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Tugas Khusus ({allTasks.length})</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* CONTENT SUB-TAB 1: AGENDA PRESENTASI MINGGUAN */}
+                  {tugasSubTab === 'agenda' && (
+                    <div className="space-y-3.5">
+                      {/* Search Bar */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Cari mata kuliah, topik materi, atau nama presenter..."
+                          value={agendaSearchQuery}
+                          onChange={e => setAgendaSearchQuery(e.target.value)}
+                          className="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-gray-100 font-medium"
+                        />
+                        {agendaSearchQuery && (
+                          <button 
+                            onClick={() => setAgendaSearchQuery('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 font-bold"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Filter Bar: Hari & Status */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                        {/* Day Filter */}
+                        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-gray-800/80 border border-slate-200/80 dark:border-gray-700/80 font-bold overflow-x-auto">
+                          <button
+                            onClick={() => setAgendaFilterDay('all')}
+                            className={`px-2.5 py-1 rounded-lg transition-all ${
+                              agendaFilterDay === 'all'
+                                ? 'bg-white dark:bg-gray-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                                : 'text-slate-600 dark:text-gray-400'
+                            }`}
+                          >
+                            Semua Hari
+                          </button>
+                          <button
+                            onClick={() => setAgendaFilterDay('Jumat')}
+                            className={`px-2.5 py-1 rounded-lg transition-all ${
+                              agendaFilterDay === 'Jumat'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-600 dark:text-gray-400'
+                            }`}
+                          >
+                            Jumat ({allAgendas.filter(a => a.day === 'Jumat').length})
+                          </button>
+                          <button
+                            onClick={() => setAgendaFilterDay('Sabtu')}
+                            className={`px-2.5 py-1 rounded-lg transition-all ${
+                              agendaFilterDay === 'Sabtu'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-600 dark:text-gray-400'
+                            }`}
+                          >
+                            Sabtu ({allAgendas.filter(a => a.day === 'Sabtu').length})
+                          </button>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-gray-800/80 border border-slate-200/80 dark:border-gray-700/80 font-bold">
+                          <button
+                            onClick={() => setAgendaFilterStatus('all')}
+                            className={`px-2.5 py-1 rounded-lg transition-all ${
+                              agendaFilterStatus === 'all'
+                                ? 'bg-white dark:bg-gray-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                                : 'text-slate-600 dark:text-gray-400'
+                            }`}
+                          >
+                            Semua ({allAgendas.length})
+                          </button>
+                          <button
+                            onClick={() => setAgendaFilterStatus('Belum')}
+                            className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                              agendaFilterStatus === 'Belum'
+                                ? 'bg-amber-500 text-white shadow-xs'
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            <Clock className="w-3 h-3" />
+                            <span>Belum ({pendingCount})</span>
+                          </button>
+                          <button
+                            onClick={() => setAgendaFilterStatus('Selesai')}
+                            className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                              agendaFilterStatus === 'Selesai'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-emerald-600 dark:text-emerald-400'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Selesai ({completedCount})</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Timeline Agenda Cards */}
+                      {filteredAgendas.length === 0 ? (
+                        <div className={`p-8 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
+                          <Calendar className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+                          <p className="text-xs font-semibold text-slate-500 dark:text-gray-400">
+                            Tidak ada agenda yang cocok dengan filter pencarian.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {filteredAgendas.map((agenda) => {
+                            const isDone = agenda.status === 'Selesai';
+
+                            return (
+                              <div
+                                key={agenda.id}
+                                className={`p-4 rounded-2xl border transition-all shadow-xs ${
+                                  isDone
+                                    ? darkMode 
+                                      ? 'bg-emerald-950/20 border-emerald-800/60' 
+                                      : 'bg-emerald-50/40 border-emerald-200'
+                                    : darkMode 
+                                      ? 'bg-gray-900 border-gray-800 hover:border-emerald-500/50' 
+                                      : 'bg-white border-slate-200 hover:border-emerald-300'
+                                } space-y-3`}
+                              >
+                                {/* Header Info Bar */}
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span 
+                                      className="px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase tracking-wide border"
+                                      style={{
+                                        backgroundColor: darkMode ? agenda.courseTheme.darkBg : agenda.courseTheme.bgLight,
+                                        borderColor: darkMode ? agenda.courseTheme.darkBorder : agenda.courseTheme.borderLight,
+                                        color: darkMode ? agenda.courseTheme.darkText : agenda.courseTheme.textLight,
+                                      }}
+                                    >
+                                      {agenda.courseCode} • {agenda.courseName}
+                                    </span>
+
+                                    <span className="text-[11px] font-bold text-slate-500 dark:text-gray-400 flex items-center gap-1">
+                                      <Calendar className="w-3 h-3 text-emerald-600" />
+                                      {agenda.day}, {agenda.time}
+                                    </span>
+
+                                    <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500 flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {agenda.room}
+                                    </span>
+                                  </div>
+
+                                  {/* Status Badge */}
+                                  <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-lg border flex items-center gap-1 shrink-0 ${
+                                    isDone
+                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                                  }`}>
+                                    {isDone ? (
+                                      <>
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                        <span>Selesai Dipresentasikan</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                        <span>Menunggu Presentasi</span>
+                                      </>
+                                    )}
+                                  </span>
+                                </div>
+
+                                {/* Topic & Group Detail */}
+                                <div className={`p-3 rounded-xl border text-xs leading-relaxed space-y-1 ${
+                                  agenda.isJurnalOrArtikel
+                                    ? 'bg-purple-50/50 dark:bg-purple-950/30 border-purple-200/50 dark:border-purple-900/50'
+                                    : 'bg-slate-50/80 dark:bg-gray-800/60 border-slate-200/60 dark:border-gray-700/60'
+                                }`}>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 text-emerald-700 dark:text-emerald-300">
+                                      {agenda.name}
+                                    </span>
+                                    <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500">
+                                      {agenda.isJurnalOrArtikel ? 'Fokus Penulisan / Luaran:' : 'Topik Makalah:'}
+                                    </span>
+                                  </div>
+                                  <p className="font-bold text-slate-800 dark:text-gray-100 pt-0.5">
+                                    {agenda.topic || 'Topik belum ditentukan'}
+                                  </p>
+                                </div>
+
+                                {/* Presenter List & Kosma Action */}
+                                <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500 block">
+                                      {agenda.isJurnalOrArtikel ? 'Penulis / Anggota:' : 'Presenter / Anggota Kelompok:'}
+                                    </span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {(agenda.members || []).map((m, mIdx) => (
+                                        <span 
+                                          key={mIdx}
+                                          className={`px-2 py-0.5 text-xs rounded-lg font-semibold border flex items-center gap-1 ${
+                                            isDone
+                                              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
+                                              : 'bg-slate-100 dark:bg-gray-800 border-slate-200 dark:border-gray-700 text-slate-800 dark:text-gray-200'
+                                          }`}
+                                        >
+                                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                            {agenda.isJurnalOrArtikel ? '✍️' : '👤'}
+                                          </span>
+                                          <span>{m}</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Kosma Action Toggle Button */}
+                                  <div className="shrink-0 pt-2 sm:pt-0">
+                                    {isLoggedInAdmin ? (
+                                      <button
+                                        onClick={() => handleToggleGroupStatus(agenda.courseId, agenda.groupIndex)}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 ${
+                                          isDone
+                                            ? 'bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 dark:bg-gray-800 dark:hover:bg-rose-950 dark:text-gray-300 dark:hover:text-rose-300'
+                                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                        }`}
+                                        title={isDone ? 'Klik untuk membatalkan status selesai' : 'Klik untuk menandai presentasi telah selesai'}
+                                      >
+                                        {isDone ? (
+                                          <>
+                                            <span>↺ Batal Selesai</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                            <span>Tandai Selesai</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    ) : (
+                                      <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 bg-slate-100 dark:bg-gray-800/60 px-2 py-1 rounded-lg flex items-center gap-1">
+                                        <Lock className="w-3 h-3 text-amber-500" />
+                                        <span>Status Kosma</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* CONTENT SUB-TAB 2: TUGAS MANDIRI / KHUSUS */}
+                  {tugasSubTab === 'tugas' && (
+                    <div className="space-y-3">
+                      {allTasks.length === 0 ? (
+                        <div className={`p-8 sm:p-10 text-center rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'}`}>
+                          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-50" />
+                          <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-gray-400">
+                            Tidak ada tugas mandiri khusus. Seluruh agenda perkuliahan berfokus pada presentasi makalah dan penulisan artikel di tab Timeline Presentasi.
+                          </p>
+                        </div>
+                      ) : (
+                        allTasks.map(task => (
+                          <div 
+                            key={task.id}
+                            className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
+                              darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                                  {task.courseCode} - {task.courseName}
+                                </span>
+                                <h4 className="font-bold text-sm mt-1.5">{task.title}</h4>
+                                <p className="text-xs text-slate-600 dark:text-gray-400 mt-1 leading-relaxed">{task.description}</p>
+                                
+                                <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-gray-400 mt-2">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Deadline: {new Date(task.deadline).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                                  </span>
+                                  <span className="font-bold text-purple-600 dark:text-purple-400">[{task.type}]</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className={`px-2 py-0.5 text-[10px] sm:text-[11px] font-extrabold rounded-lg ${
+                                  task.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                }`}>
+                                  {task.status}
+                                </span>
+                                {isLoggedInAdmin && (
+                                  <button
+                                    onClick={() => handleToggleTaskStatus(task.id.split('-')[0], task.id)}
+                                    className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 dark:bg-gray-800 text-slate-700 dark:text-gray-300"
+                                  >
+                                    Ubah
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* 4. UNIFIED PEDOMAN & SISTEMATIKA PENULISAN VIEW */}
+            {activeTab === 'pedoman' && (
+              <div className="space-y-4 animate-fadeIn">
+                {/* Banner Header */}
+                <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gradient-to-br from-emerald-950/80 to-gray-900 border-emerald-800/50' : 'bg-gradient-to-br from-emerald-50 to-white border-emerald-200'} shadow-xs`}>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 sm:p-3 rounded-2xl bg-emerald-600 text-white shrink-0 shadow-xs">
+                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-extrabold tracking-wider uppercase px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                        Pusat Panduan Akademik MPS 2
+                      </span>
+                      <h2 className="text-base sm:text-lg font-extrabold mt-1 text-slate-800 dark:text-white">
+                        Pedoman & Sistematika Penulisan
+                      </h2>
+                      <p className="text-xs text-slate-600 dark:text-gray-300 mt-0.5 leading-relaxed">
+                        Pedoman Penulisan Artikel 2026 (Layout 4-4-3-3 & APA 7th) dan Sistematika Penulisan Makalah Standar Program Magister.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Scroll Pill Selector for ALL 5 Guidelines */}
+                  <div className="flex gap-2 mt-4 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/40 overflow-x-auto pb-1 no-scrollbar">
+                    {ALL_GUIDELINES.map(g => (
+                      <button
+                        key={g.id}
+                        onClick={() => setSelectedGuidelineId(g.id)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+                          selectedGuidelineId === g.id
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : darkMode
+                            ? 'bg-gray-800/90 text-gray-300 hover:bg-gray-700'
+                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {g.id === 'sistematika-makalah' ? <FileText className="w-3.5 h-3.5" /> : g.id === 'artikel-jurnal' ? <FileText className="w-3.5 h-3.5" /> : g.id === 'hmpi' ? <BookOpen className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        <span>{g.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Content Detail of Selected Guideline */}
+                {(() => {
+                  const currentGuideline = ALL_GUIDELINES.find(g => g.id === selectedGuidelineId) || ALL_GUIDELINES[0];
+                  return (
+                    <div className="space-y-4">
+                      <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-4`}>
+                        <div className="flex items-center justify-between gap-2 flex-wrap border-b pb-2.5 border-slate-100 dark:border-gray-800">
+                          <h3 className="font-extrabold text-sm sm:text-base text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                            <BookOpen className="w-4 h-4" /> {currentGuideline.title}
+                          </h3>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                            {currentGuideline.badge}
+                          </span>
+                        </div>
+                        
+                        <p className="text-xs text-slate-600 dark:text-gray-300 leading-relaxed font-medium">
+                          {currentGuideline.description}
+                        </p>
+
+                        {/* Guideline Sections */}
+                        <div className="space-y-3 pt-1">
+                          {currentGuideline.sections.map((sec, idx) => (
+                            <div 
+                              key={idx}
+                              className={`p-3.5 sm:p-4 rounded-xl border ${
+                                darkMode ? 'bg-gray-800/60 border-gray-700/80' : 'bg-slate-50 border-slate-200/80'
+                              } space-y-2`}
+                            >
+                              <h4 className="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-white flex items-center gap-2 border-b pb-1.5 border-slate-200 dark:border-gray-700">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                {sec.heading}
+                              </h4>
+                              <ul className="space-y-2 text-xs text-slate-700 dark:text-gray-200 leading-relaxed font-medium">
+                                {sec.items.map((item, iidx) => (
+                                  <li key={iidx} className="flex items-start gap-2">
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0 mt-0.5">•</span>
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Callout box for Makalah Standar & Artikel Jurnal */}
+                      {currentGuideline.id === 'sistematika-makalah' && (
+                        <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-amber-950/40 border-amber-800/60 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'} text-xs space-y-1.5`}>
+                          <div className="font-extrabold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                            <Sparkles className="w-4 h-4 shrink-0" /> Ketentuan Penting Makalah Standar:
+                          </div>
+                          <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-amber-100/90 font-medium pl-1">
+                            <li><strong>Latar Belakang (Das Sein vs Das Sollen)</strong>: Mengurai fakta empiris vs harapan teori.</li>
+                            <li><strong>Rumusan Masalah</strong>: Wajib diawali kata <em>"Bagaimana..."</em>.</li>
+                            <li><strong>Integrasi Pembahasan (BAB III)</strong>: Gabungkan Analisis, Interpretasi, & Diskusi.</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {currentGuideline.id === 'artikel-jurnal' && (
+                        <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-blue-950/40 border-blue-800/60 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'} text-xs space-y-1.5`}>
+                          <div className="font-extrabold flex items-center gap-1.5 text-blue-700 dark:text-blue-300">
+                            <Sparkles className="w-4 h-4 shrink-0" /> Ringkasan Layout Artikel & Margin 4-4-3-3:
+                          </div>
+                          <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-blue-100/90 font-medium pl-1">
+                            <li><strong>Margin Kertas</strong>: Atas 4 cm, Kiri 4 cm, Kanan 3 cm, Bawah 3 cm. Nomor Halaman di tengah bawah.</li>
+                            <li><strong>Alur Pendahuluan 4 Paragraf</strong>: P1 (Urgensi), P2 (State of the art), P3 (Research Gap & Novelty), P4 (Tujuan & Fokus).</li>
+                            <li><strong>Gaya Sitasi</strong>: APA 7th Edition (memuat DOI) & Footnote untuk kitab tafsir/buku.</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -1424,7 +2012,7 @@ function MainApp() {
                     <div>
                       <h3 className="font-extrabold text-base">Panel Pengelola Kosma</h3>
                       <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
-                        Masukkan PIN Keamanan Kosma (5 Digit) untuk mengunggah silabus PDF & mengelola data.
+                        Masukkan PIN Keamanan Kosma (5 Digit) untuk mengelola tugas, kelompok & data PJ perkuliahan.
                       </p>
                     </div>
 
@@ -1462,7 +2050,7 @@ function MainApp() {
                         </div>
                         <div>
                           <h3 className="font-extrabold text-xs sm:text-sm">Mode Pengelola (Kosma/Admin)</h3>
-                          <p className="text-[11px] text-slate-500 dark:text-gray-400">Hak Akses: Penuh (Upload Multi PDF & Task Sync)</p>
+                          <p className="text-[11px] text-slate-500 dark:text-gray-400">Hak Akses: Penuh (Kelola Tugas, Kelompok, & Task Sync)</p>
                         </div>
                       </div>
 
@@ -1568,164 +2156,6 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                       </div>
                     </div>
 
-                    {/* SECTION: BULK UPLOAD MULTI SLOTS SILABUS */}
-                    <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-4`}>
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-3">
-                        <div>
-                          <h3 className="font-bold text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                            <Upload className="w-4 h-4 shrink-0" /> Upload Sekaligus (Multi Slot PDF Silabus)
-                          </h3>
-                          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                            Pilih beberapa file PDF sekaligus untuk ditambah langsung ke mata kuliah yang sesuai.
-                          </p>
-                        </div>
-                        <button
-                          onClick={handleAddBulkSlot}
-                          className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold rounded-xl text-xs flex items-center gap-1 hover:bg-emerald-200 transition-all shrink-0"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> + Slot PDF
-                        </button>
-                      </div>
-
-                      <div className="space-y-3">
-                        {bulkSlots.map((slot, index) => (
-                          <div 
-                            key={index}
-                            className={`p-3 rounded-xl border flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 ${
-                              darkMode ? 'bg-gray-800/60 border-gray-700' : 'bg-slate-50 border-slate-200'
-                            }`}
-                          >
-                            <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-lg text-[11px] font-bold self-start sm:self-center">
-                              Slot #{index + 1}
-                            </span>
-
-                            {/* Select Course */}
-                            <select
-                              value={slot.courseId}
-                              onChange={(e) => handleBulkSlotCourse(index, e.target.value)}
-                              className={`p-2 text-xs font-bold rounded-lg border outline-none ${
-                                darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-slate-300'
-                              }`}
-                            >
-                              {courses.map(c => (
-                                <option key={c.id} value={c.id}>
-                                  {c.code} - {c.name}
-                                </option>
-                              ))}
-                            </select>
-
-                            {/* File Input */}
-                            <input
-                              type="file"
-                              accept="application/pdf"
-                              onChange={(e) => handleBulkSlotFile(index, e.target.files?.[0] || null)}
-                              className="text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-emerald-100 file:text-emerald-700 dark:file:bg-emerald-950 dark:file:text-emerald-300 hover:file:bg-emerald-200 flex-1"
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      <button
-                        onClick={handleSaveBulkSlots}
-                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Check className="w-4 h-4" /> Simpan {bulkSlots.length} Slot Silabus Sekaligus
-                      </button>
-                    </div>
-
-                    {/* SECTION 1: SINGLE UPLOAD & EXTRACTION VIA MANUAL/AI */}
-                    <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-4`}>
-                      <h3 className="font-bold text-xs sm:text-sm flex items-center gap-2 text-purple-600 dark:text-purple-400">
-                        <Sparkles className="w-4 h-4 shrink-0" /> Upload Single PDF (Tanpa Batasan File) & Ekstraksi AI
-                      </h3>
-
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-bold">1. Pilih Mata Kuliah Target:</label>
-                          <select
-                            value={targetCourseForUpload}
-                            onChange={(e) => setTargetCourseForUpload(e.target.value)}
-                            className={`w-full p-2.5 text-xs font-semibold rounded-xl border outline-none ${
-                              darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200'
-                            }`}
-                          >
-                            {courses.map(c => (
-                              <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-xs font-bold">2. Unggah Dokumen PDF Silabus Baru (File #1 / File #2):</label>
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            onChange={handleFileUpload}
-                            className="w-full text-xs p-2 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-xs font-bold">3. Tempel Teks Silabus / Catatan Tambahan:</label>
-                          <textarea
-                            rows={4}
-                            placeholder="Tempelkan isi silabus teks di sini untuk dibaca oleh AI..."
-                            value={syllabusText}
-                            onChange={(e) => setSyllabusText(e.target.value)}
-                            className={`w-full p-3 text-xs rounded-xl border outline-none ${
-                              darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200'
-                            }`}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 pt-2">
-                        <button
-                          onClick={handleSaveExtractedDraft}
-                          disabled={!uploadedPdfUrl && !syllabusText.trim()}
-                          className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs"
-                        >
-                          <CheckCircle2 className="w-4 h-4" /> Simpan PDF Ke Matkul
-                        </button>
-                        <button
-                          onClick={handleSimulateAIParse}
-                          disabled={isAnalyzing || !syllabusText.trim()}
-                          className="py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs"
-                        >
-                          <Sparkles className="w-4 h-4" /> {isAnalyzing ? 'Membaca...' : 'Ekstrak AI'}
-                        </button>
-                      </div>
-
-                      {/* PREVIEW & EDIT DRAFT FORM */}
-                      {extractedDraft && (
-                        <div className="mt-4 p-4 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 space-y-3 animate-fadeIn">
-                          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs">
-                            <ShieldAlert className="w-4 h-4" />
-                            Hasil Ekstraksi AI (Review Admin Sebelum Disimpan)
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[11px] font-bold text-slate-700 dark:text-gray-300">Ringkasan Silabus:</label>
-                            <textarea
-                              rows={2}
-                              value={extractedDraft.syllabusSummary || ''}
-                              onChange={(e) => setExtractedDraft({ ...extractedDraft, syllabusSummary: e.target.value })}
-                              className={`w-full p-2 text-xs rounded-lg border outline-none ${
-                                darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-amber-200'
-                              }`}
-                            />
-                          </div>
-
-                          <button
-                            onClick={handleSaveExtractedDraft}
-                            className="w-full py-2 bg-emerald-600 text-white font-bold text-xs rounded-lg hover:bg-emerald-700 shadow-xs"
-                          >
-                            Simpan ke Data Resmi Matkul
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
                     {/* SECTION 2: EDIT INFO PJ MATKUL */}
                     <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-3`}>
                       <h3 className="font-bold text-xs sm:text-sm flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
@@ -1735,8 +2165,8 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                       <div className="space-y-2">
                         <label className="text-xs font-bold">Pilih Mata Kuliah:</label>
                         <select
-                          value={targetCourseForUpload}
-                          onChange={(e) => setTargetCourseForUpload(e.target.value)}
+                          value={selectedPjCourseId}
+                          onChange={(e) => setSelectedPjCourseId(e.target.value)}
                           className={`w-full p-2.5 text-xs font-semibold rounded-xl border outline-none ${
                             darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200'
                           }`}
@@ -1769,7 +2199,7 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                       </div>
 
                       <button
-                        onClick={() => handleUpdatePJInfo(targetCourseForUpload)}
+                        onClick={() => handleUpdatePJInfo(selectedPjCourseId)}
                         className="w-full py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700"
                       >
                         Perbarui Data PJ Matkul
@@ -1782,7 +2212,125 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
             )}
           </>
         )}
+    </>
+  );
 
+  return (
+    <div className={`min-h-screen transition-colors duration-200 font-sans ${darkMode ? 'bg-gray-950 text-gray-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* HEADER / NAVIGATION (OPTIMIZED FOR SMALL MOBILE SCREENS LIKE IPHONE 13 MINI & OLDER ANDROIDS) */}
+      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${darkMode ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-slate-200'}`}>
+        <div className="max-w-md md:max-w-3xl mx-auto px-3 py-2 flex items-center justify-between gap-1">
+          
+          {/* Logo & Title */}
+          <div className="flex items-center gap-1.5 cursor-pointer shrink-0" onClick={() => setSelectedCourseId(null)}>
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-extrabold flex items-center justify-center text-base shadow-xs shrink-0">
+              S2
+            </div>
+            <div className="shrink-0">
+              <h1 className="font-extrabold text-sm sm:text-base leading-none tracking-tight">Portal MPS2</h1>
+              <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-tight mt-0.5">Magister Pend. Islam</p>
+            </div>
+          </div>
+
+          {/* Controls & Badges */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Status Cloud Sync Badge */}
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 shrink-0 ${
+              isSyncedWithSupabase 
+                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' 
+                : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+            }`}>
+              <Database className="w-2.5 h-2.5" />
+              <span>{isSyncedWithSupabase ? 'Cloud Sync' : 'Local'}</span>
+            </span>
+
+            {/* Tombol KOSMA Admin */}
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`px-2 py-1 rounded-xl border text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                activeTab === 'admin' || isLoggedInAdmin
+                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                  : darkMode
+                  ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Lock className="w-3 h-3" />
+              <span>{isLoggedInAdmin ? 'Kosma' : 'Kosma'}</span>
+            </button>
+
+            {/* Mode Siang/Malam (Icon Only on Small Screens) */}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-1.5 rounded-xl border transition-all text-xs font-semibold flex items-center shrink-0 ${
+                darkMode 
+                  ? 'bg-gray-800 border-gray-700 text-amber-400 hover:bg-gray-700' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+              aria-label="Toggle Theme"
+            >
+              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+        </div>
+
+        {/* TOP TAB NAV (MAIN SCREEN) */}
+        <div className="max-w-md md:max-w-3xl mx-auto px-3 flex border-t border-slate-200/60 dark:border-gray-800">
+          <button
+            onClick={() => {
+              setActiveTab('jadwal');
+              setSelectedCourseId(null);
+            }}
+            className={`flex-1 py-2.5 text-xs sm:text-sm font-bold border-b-2 text-center transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'jadwal' && !selectedCourseId
+                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-800'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            Jadwal Matkul
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('tugas');
+              setSelectedCourseId(null);
+            }}
+            className={`flex-1 py-2.5 text-xs sm:text-sm font-bold border-b-2 text-center transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'tugas' && !selectedCourseId
+                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-800'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            Agenda & Tugas
+            {(allAgendas.length > 0 || allTasks.length > 0) && (
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-full font-bold">
+                {allAgendas.filter(a => a.status !== 'Selesai').length > 0 ? allAgendas.filter(a => a.status !== 'Selesai').length : allAgendas.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('pedoman');
+              setSelectedCourseId(null);
+            }}
+            className={`flex-1 py-2.5 text-xs sm:text-sm font-bold border-b-2 text-center transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'pedoman' && !selectedCourseId
+                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-800'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+            Pedoman & Sistematika
+          </button>
+        </div>
+      </header>
+
+      {/* MAIN CONTAINER */}
+      <main className="max-w-md md:max-w-3xl mx-auto px-3 py-4 pb-28 sm:pb-12 space-y-4 font-sans">
+        {renderMainContent()}
       </main>
 
       {/* MODAL: ADD TASK */}
@@ -1941,17 +2489,26 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
               <span className="font-bold text-xs sm:text-sm truncate">{fullscreenPdf.name}</span>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <a
+                href={fullscreenPdf.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                title="Buka langsung di aplikasi PDF HP atau Tab Browser"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Tab Baru / App</span><span className="sm:hidden">Buka</span>
+              </a>
               <a
                 href={fullscreenPdf.url}
                 download={fullscreenPdf.name}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                className="px-2.5 sm:px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
               >
                 <Download className="w-3.5 h-3.5" /> Unduh
               </a>
               <button
                 onClick={() => setFullscreenPdf(null)}
-                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1"
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1"
               >
                 ✕ Tutup
               </button>
@@ -1960,11 +2517,46 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
 
           {/* Fullscreen Body Frame */}
           <div className="flex-1 w-full bg-slate-900 overflow-hidden relative">
-            <iframe
-              src={fullscreenPdf.url}
-              title={fullscreenPdf.name}
+            <object
+              data={fullscreenPdf.url}
+              type="application/pdf"
               className="w-full h-full border-none"
-            />
+            >
+              <iframe
+                src={fullscreenPdf.url}
+                title={fullscreenPdf.name}
+                className="w-full h-full border-none"
+              >
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-3 bg-slate-900 text-white">
+                  <FileText className="w-12 h-12 text-emerald-400 animate-pulse" />
+                  <p className="font-bold text-base">Pratinjau PDF Memerlukan Aplikasi / Tab Browser</p>
+                  <p className="text-xs text-slate-400 max-w-sm">
+                    Browser Anda tidak mengizinkan penayangan dokumen PDF berhalaman ganda di dalam frame ini.
+                  </p>
+                  <a
+                    href={fullscreenPdf.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" /> Buka PDF di Layar Penuh / Aplikasi HP
+                  </a>
+                </div>
+              </iframe>
+            </object>
+            
+            {/* Mobile Bottom Quick Assist Bar */}
+            <div className="sm:hidden absolute bottom-3 left-3 right-3 p-2 bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-semibold rounded-xl flex items-center justify-between gap-2 shadow-xl border border-slate-700">
+              <span className="truncate">Layar blank di HP Anda?</span>
+              <a
+                href={fullscreenPdf.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shrink-0 text-xs flex items-center gap-1"
+              >
+                Buka Tab Asli ↗
+              </a>
+            </div>
           </div>
         </div>
       )}

@@ -31,6 +31,7 @@ export interface Course {
   pjContact?: string;
   tasks: Task[];
   groups: Group[];
+  guidelineSections?: GuidelineSection[];
 }
 
 export interface Task {
@@ -46,14 +47,113 @@ export interface Group {
   name: string;
   topic?: string;
   members: string[];
+  status?: 'Belum' | 'Selesai';
+  completedAt?: string;
 }
+
+export interface GuidelineSection {
+  heading: string;
+  items: string[];
+}
+
+export interface GuidelineItem {
+  id: string;
+  title: string;
+  badge: string;
+  icon: string;
+  description: string;
+  sections: GuidelineSection[];
+}
+
+// PEDOMAN PENULISAN (Hanya Sistematika Makalah & Penulisan Artikel 2026)
+export const ALL_GUIDELINES: GuidelineItem[] = [
+  {
+    id: 'sistematika-makalah',
+    title: 'Sistematika Penulisan Makalah',
+    badge: 'Standar Resmi MPS Pascasarjana UIN SGD',
+    icon: 'FileText',
+    description: 'Pedoman struktur baku 4 BAB penyusunan makalah ilmiah semester untuk program Magister Manajemen Pendidikan Islam.',
+    sections: [
+      {
+        heading: 'BAB I PENDAHULUAN',
+        items: [
+          'A. Latar Belakang: Mengurai kesenjangan/problem antara Das Sein (Ranah realitas/fakta empiris) vs Das Sollen (Ranah harapan/teori) serta pentingnya penulisan makalah.',
+          'B. Rumusan Masalah: Kesenjangan Antara Das Sollen dan Das Sein. Wajib diawali kata tanya "Bagaimana..." (contoh: 1. Tuliskan sub pokok materi diawali kata bagaimana, 2. dst).',
+          'C. Tujuan Penulisan: 1) Tujuan Umum (Mengetahui topik utama kajian/judul) & 2) Tujuan Khusus (Mengetahui sub-pokok uraian rinci).',
+          'D. Manfaat Penulisan: 1) Manfaat Teoritis (Menambah teori baru pengembangan keilmuan) & 2) Manfaat Praktis (Sumbang saran pemahaman).',
+          'E. Metode Penulisan: Studi Pustaka ((1) Mengumpulkan referensi relevan, (2) Memilih teori penunjang, (3) Menginterpretasikan teori).',
+          'F. Sistematika Pembahasan: Menguraikan alur pembahasan dari BAB I hingga BAB IV.'
+        ]
+      },
+      {
+        heading: 'BAB II LANDASAN TEORI / KAJIAN PUSTAKA',
+        items: [
+          '1. Deskripsi Teori: Mendeskripsikan dan menjawab pertanyaan penulisan dengan pendekatan teoritis mendasar.',
+          '2. Interpretasi Teori: Mengkritisi dan menginterpretasikan berbagai teori dari berbagai pendekatan keilmuan yang digunakan.'
+        ]
+      },
+      {
+        heading: 'BAB III PEMBAHASAN',
+        items: [
+          '1. Analisis ➔ Menghubungkan teori dan fakta empiris.',
+          '2. Interpretasi ➔ Dijelaskan kembali dengan bahasa dan gagasan kritis penulis (diungkap apa adanya & digabungkan dengan bahasa penulis).',
+          '3. Diskusi ➔ Penambahan referensi dengan buku-buku / literatur lain.',
+          '4. Integrasi Analisis-Interpretasi-Diskusi ➔ Terintegrasi secara sistematis untuk memunculkan solusi terkait topik bahasan yang didukung berbagai teori maupun realitas.'
+        ]
+      },
+      {
+        heading: 'BAB IV KESIMPULAN DAN REKOMENDASI',
+        items: [
+          'A. Kesimpulan: 1) Kesimpulan Umum (Menemukan konsep tentang judul) & 2) Kesimpulan Khusus (Menjawab tujuan khusus / pertanyaan penelitian).',
+          'B. Implikasi: Hasil kajian berimplikasi terhadap pengembangan pengetahuan, wawasan konsep, serta membantu/menginspirasi dalam proses kegiatan pengelolaan.',
+          'C. Rekomendasi: Mengusulkan saran yang dianjurkan (misal: penumbuhan jiwa kepemimpinan pribadi, peningkatan efisiensi, dll).',
+          'D. Daftar Pustaka: Memuat referensi rujukan ilmiah secara lengkap.'
+        ]
+      }
+    ]
+  },
+  {
+    id: 'artikel-jurnal',
+    title: 'Pedoman Penulisan Artikel 2026',
+    badge: 'Format Standar Artikel & Layout 4-4-3-3',
+    icon: 'FileText',
+    description: 'Panduan khusus penulisan artikel ilmiah berbasis riset pustaka (library research), alur 4 paragraf pendahuluan, pembahasan, hingga layout margin.',
+    sections: [
+      {
+        heading: 'ALUR 4 PARAGRAF PENDAHULUAN ARTIKEL',
+        items: [
+          'Paragraf 1 (Mengapa Masalah Ini Penting?): Menggambarkan fenomena, fakta empiris, data, perubahan kebijakan, dan kesenjangan antara kondisi ideal vs kondisi aktual.',
+          'Paragraf 2 (Apa yang Sudah Diketahui?): Menjelaskan state of the art dan penelitian terdahulu. Membandingkan, mengaitkan, dan menyintesiskan artikel jurnal mutakhir.',
+          'Paragraf 3 (Apa yang Belum Diketahui?): Menguraikan research gap (objek, teori, metode) & novelty (kebaruan/kontribusi baru penelitian). Pola: "Penelitian terdahulu menjelaskan X, tetapi belum menjelaskan Y, maka penelitian ini menawarkan Z".',
+          'Paragraf 4 (Apa yang Dilakukan?): Menyatakan secara tegas tujuan, fokus, dan kontribusi penelitian untuk mengisi kesenjangan.'
+        ]
+      },
+      {
+        heading: 'METODE & PEMBAHASAN ARTIKEL LITERATUR',
+        items: [
+          'Metode Riset Pustaka (Library Research): Menjelaskan pendekatan (kualitatif-deskriptif, filosofis, tafsir tematik), sumber primer & sekunder, kriteria pemilihan literatur, teknik analisis, serta penjaminan kredibilitas (triangulasi perspektif).',
+          'Temuan & Pembahasan: Hasil dikelompokkan berdasarkan tema/konsep utama (bukan sekadar tafsir ayat per ayat terpisah). Pembahasan mendialogkan temuan dengan teori & penelitian terdahulu (Temuan ➔ Bukti Pustaka ➔ Analisis ➔ Dialog Teori ➔ Sintesis/Novelty ➔ Implikasi).',
+          'Simpulan: Jawaban akhir ringkas & terintegrasi merumuskan temuan utama, kontribusi, dan implikasi/rekomendasi.',
+          'Daftar Pustaka & Sitasi: Menggunakan gaya APA 7th Edition (memuat DOI). Format footnote untuk buku, jurnal, kitab tafsir (misal: Al-Tabari, Jami\' al-Bayan), dan website resmi.'
+        ]
+      },
+      {
+        heading: 'TATA LETAK HALAMAN & MARGIN (PAGE SETUP)',
+        items: [
+          'Margin Kertas: Margin Atas: 4 cm, Margin Kiri: 4 cm, Margin Kanan: 3 cm, Margin Bawah: 3 cm (Aturan 4-4-3-3).',
+          'Nomor Halaman: Ditempatkan di Bagian Tengah Bawah halaman.'
+        ]
+      }
+    ]
+  }
+];
 
 export const INITIAL_COURSES: Course[] = [
   {
     id: 'hmpi',
     code: 'HMPI',
     name: 'Hadis Manajemen Pendidikan',
-    lecturer: 'Dr. Moh. Sulhan S.Ag., M.Ag.',
+    lecturer: 'Dr. H. Moh. Sulhan, M.Ag. / Dr. Dadan F Ramdan, M.M.Pd',
     day: 'Jumat',
     time: '06:30 - 09:00',
     room: 'Ruang 16 Lt.3',
@@ -70,16 +170,37 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#FDE68A',
       accent: '#D97706',
     },
-    syllabusSummary: 'Mata kuliah ini membahas matan dan sanad hadis-hadis tematik yang menjadi landasan prinsip kepemimpinan, tata kelola, dan manajemen pendidikan Islam.',
-    syllabusPdfs: [],
+    syllabusSummary: 'Mengkaji dasar profetis ajaran Nabi SAW tentang Manusia, Perencanaan, Organizing, Actuating, Controlling, Kepemimpinan, Psikologi & Etika Organisasi. Memuat seminar makalah berbasis takhrij & syarah hadis.',
+    syllabusPdfUrl: '/syllabus/RPS_HMPI_Hadis_Manajemen.pdf',
+    pdfFileName: 'RPS_Hadis_Manajemen_Pendidikan_Islam.pdf',
+    syllabusPdfs: [
+      {
+        id: 'pdf-hmpi-1',
+        name: 'RPS_Hadis_Manajemen_Pendidikan_Islam.pdf',
+        url: '/syllabus/RPS_HMPI_Hadis_Manajemen.pdf'
+      }
+    ],
     tasks: [],
-    groups: []
+    groups: [],
+    guidelineSections: [
+      {
+        heading: 'SISTEMATIKA KHUSUS MAKALAH HADITS MANAJEMEN',
+        items: [
+          '1. Judul & Tema: Menghubungkan tema hadis dengan masalah atau kondisi umum kontemporer hari ini.',
+          '2. Teks Hadis & Terjemah: Memilih dan menyajikan teks hadis Arab beserta terjemahannya.',
+          '3. Takhrij Hadis: Menelusuri sumber asli (Mashodir al-Ashliyah) dari Kutubussittah / Kitab 9 Imam.',
+          '4. Penjelasan (Syarah Hadis): Menguraikan makna hadis dari kitab-kitab syarah mu\'tabar (Ikmal Al-Mu\'allim, Fathul Bari, Subulus Salam).',
+          '5. Tafsir bil Ayat: Memperkaya analisis dengan ayat-ayat Al-Qur\'an pendukung.',
+          '6. Tafsir Manajemen Pendidikan: Menganalisis implikasi pesan profetis hadis ke dalam teori & praktik Manajemen Pendidikan Islam.'
+        ]
+      }
+    ]
   },
   {
     id: 'fmpi',
     code: 'FMPI',
     name: 'Filsafat Manajemen Pend. Islam',
-    lecturer: 'Dr. Dian M.Ag.',
+    lecturer: 'Dr. Dian, M.Ag. / Dr. Ahmad Masrul Anwar, M.Ag. / Prof. Dr. Karman, M.Ag.',
     day: 'Jumat',
     time: '09:00 - 11:30',
     room: 'Ruang 16 Lt.3',
@@ -96,10 +217,122 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#F87171',
       accent: '#E02424',
     },
-    syllabusSummary: 'Mengkaji fondasi ontologis, epistemologis, dan aksiologis filsafat manajemen pendidikan Islam dalam membangun paradigma kelembagaan modern.',
-    syllabusPdfs: [],
+    syllabusSummary: 'Menggali filsafat di balik ilmu pengetahuan, konsep dasar & sejarah pemikiran filosofis (Yunani, Barat, Islam), 3 pilar (Ontologi, Epistemologi, Aksiologi), dan penerapan pada tata kelola Lembaga Pendidikan Islam.',
+    syllabusPdfUrl: '/syllabus/RPS_FMPI_Filsafat_Manajemen.pdf',
+    pdfFileName: 'RPS_Filsafat_Manajemen_Pendidikan_Islam.pdf',
+    syllabusPdfs: [
+      {
+        id: 'pdf-fmpi-1',
+        name: 'RPS_Filsafat_Manajemen_Pendidikan_Islam.pdf',
+        url: '/syllabus/RPS_FMPI_Filsafat_Manajemen.pdf'
+      }
+    ],
     tasks: [],
-    groups: []
+    groups: [
+      // KELOMPOK PRESENTASI / DISKUSI MAKALAH (13 KELOMPOK)
+      {
+        name: 'Kelompok 1 (Diskusi)',
+        topic: 'Relasi Filsafat, Ilmu dan Agama',
+        members: ['Fathan Mubina']
+      },
+      {
+        name: 'Kelompok 2 (Diskusi)',
+        topic: 'Tiga Pilar Utama Ruang Lingkup Filsafat (Ontologi, Epistemologi dan Aksiologi)',
+        members: ['Riyan Haq', 'M. Gesta Haikal Maulidan']
+      },
+      {
+        name: 'Kelompok 3 (Diskusi)',
+        topic: 'Pandangan Filsafat tentang Pendidikan (Studi Komparatif Yunani, Barat dan Islam)',
+        members: ['Bilbina Balquist', 'Hana Handayani']
+      },
+      {
+        name: 'Kelompok 4 (Diskusi)',
+        topic: 'Pendidikan sebagai Ilmu (ditinjau dari sifat, karakteristik, dan cabang kajiannya)',
+        members: ['Asep Abdul Ajij Alutfi', 'Imam Amanullah']
+      },
+      {
+        name: 'Kelompok 5 (Diskusi)',
+        topic: 'Cara Kerja Ilmuwan / Telaah Konstruksi dan Pengembangan Teori serta Alternatif Metodologinya',
+        members: ['Nurhidayah', 'Santi Nuraidah']
+      },
+      {
+        name: 'Kelompok 6 (Diskusi)',
+        topic: 'Perkembangan Ilmu Organisasi, Administrasi, dan Manajemen',
+        members: ['Nurlaela', 'Veni Ayu Rahmayanti']
+      },
+      {
+        name: 'Kelompok 7 (Diskusi)',
+        topic: 'Kepemimpinan sebagai Inti dari Manajemen',
+        members: ['Nasya Millatul Faza', 'Restu Rosita']
+      },
+      {
+        name: 'Kelompok 8 (Diskusi)',
+        topic: 'Berkenalan dengan Wahyu Memandu Ilmu',
+        members: ['Dewi Rakhmawati', 'Nadia Nurul Fauziah']
+      },
+      {
+        name: 'Kelompok 9 (Diskusi)',
+        topic: 'Objek Formal dan Materil Manajemen Pendidikan Islam',
+        members: ['Lutfhi Syamsul Maarif', 'Zaki Firdaus Al Hamid Rakasiwi']
+      },
+      {
+        name: 'Kelompok 10 (Diskusi)',
+        topic: 'Paradigma Keilmuan Manajemen Pendidikan Islam (tinjauan Ontologi, Epistemologi dan Aksiologi)',
+        members: ['Gani Suganda', 'Hazzaj Al Hawary Robbani']
+      },
+      {
+        name: 'Kelompok 11 (Diskusi)',
+        topic: 'Implikasi dan Implementasi Filsafat Manajemen Pendidikan Islam dalam Pengembangan Keilmuan dan Pendidikan',
+        members: ['Nunung Nurohmah', 'Izzulhaq Pratama Mulkan']
+      },
+      {
+        name: 'Kelompok 12 (Diskusi)',
+        topic: 'Responsi Filosofis Pengelolaan Lembaga Pendidikan Islam di Era Disrupsi Digital 5.0',
+        members: ['Asep Trisna Sanjaya', 'Navis Irvanan Ni\'am']
+      },
+      {
+        name: 'Kelompok 13 (Diskusi)',
+        topic: 'Responsi (Arah Pengembangan Prodi Manajemen Pendidikan Islam)',
+        members: ['Wisam Ridwan']
+      },
+
+      // KELOMPOK PENULISAN JURNAL (7 KELOMPOK)
+      {
+        name: 'Kelompok Jurnal 1',
+        topic: 'Penulisan Artikel Jurnal Filsafat Manajemen Pendidikan Islam',
+        members: ['Nunung Nurohmah', 'Restu Rosita', 'Nurlaela']
+      },
+      {
+        name: 'Kelompok Jurnal 2',
+        topic: 'Penulisan Artikel Jurnal Filsafat Manajemen Pendidikan Islam',
+        members: ['Fathan Mubina', 'Nadia Nurul Fauziah', 'Asep Abdul Ajij Alutfi']
+      },
+      {
+        name: 'Kelompok Jurnal 3',
+        topic: 'Penulisan Artikel Jurnal Filsafat Manajemen Pendidikan Islam',
+        members: ['Dewi Rakhmawati', 'Santi Nuraidah', 'Bilbina Balquist', 'Veni Ayu Rahmayanti']
+      },
+      {
+        name: 'Kelompok Jurnal 4',
+        topic: 'Penulisan Artikel Jurnal Filsafat Manajemen Pendidikan Islam',
+        members: ['Izzulhaq Pratama Mulkan', 'Zaki Firdaus Al Hamid Rakasiwi', 'Riyan Haq', 'Asep Trisna Sanjaya']
+      },
+      {
+        name: 'Kelompok Jurnal 5',
+        topic: 'Penulisan Artikel Jurnal Filsafat Manajemen Pendidikan Islam',
+        members: ['Navis Irvanan Ni\'am', 'Imam Amanullah', 'Hana Handayani', 'Siti Nur Latifatul Qolbiyah']
+      },
+      {
+        name: 'Kelompok Jurnal 6',
+        topic: 'Penulisan Artikel Jurnal Filsafat Manajemen Pendidikan Islam',
+        members: ['Nurhidayah', 'Lutfhi Syamsul Maarif', 'Nasya Millatul Faza', 'Wisam Ridwan']
+      },
+      {
+        name: 'Kelompok Jurnal 7',
+        topic: 'Penulisan Artikel Jurnal Filsafat Manajemen Pendidikan Islam',
+        members: ['Gani Suganda', 'M. Gesta Haikal Maulidan', 'Hazzaj Al Hawary Robbani']
+      }
+    ]
   },
   {
     id: 'pmpi',
@@ -131,7 +364,7 @@ export const INITIAL_COURSES: Course[] = [
     id: 'tmpi',
     code: 'TMPI',
     name: 'Tafsir Manajemen Pendidikan',
-    lecturer: 'Dr. Heri Khoiruddin M.Ag.',
+    lecturer: 'Dr. Heri Khoiruddin, M.Ag.',
     day: 'Jumat',
     time: '15:20 - 17:50',
     room: 'Ruang 16 Lt.3',
@@ -148,16 +381,147 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#E9D5FF',
       accent: '#9333EA',
     },
-    syllabusSummary: 'Kajian ayat-ayat Al-Qur\'an berbasis tafsir maudhui (tematik) tentang prinsip komunikasi, perencanaan, dan evaluasi pendidikan.',
-    syllabusPdfs: [],
+    syllabusSummary: 'Menganalisis ayat-ayat Al-Qur\'an menggunakan metodologi tafsir (Tahlili, Ijmali, Muqaran, Maudlu\'i) & mentransformasikan nilai Al-Qur\'an ke manajemen pendidikan. Penugasan publikasi Jurnal SINTA 3.',
+    syllabusPdfUrl: '/syllabus/RPS_TMPI_Tafsir_Manajemen.pdf',
+    pdfFileName: 'RPS_Tafsir_Manajemen_Pendidikan_Islam.pdf',
+    syllabusPdfs: [
+      {
+        id: 'pdf-tmpi-1',
+        name: 'RPS_Tafsir_Manajemen_Pendidikan_Islam.pdf',
+        url: '/syllabus/RPS_TMPI_Tafsir_Manajemen.pdf'
+      }
+    ],
     tasks: [],
-    groups: []
+    groups: [
+      // KELOMPOK PRESENTASI / DISKUSI MAKALAH TMPI (12 KELOMPOK)
+      {
+        name: 'Kelompok 1 (Diskusi)',
+        topic: 'Sumber Penafsiran: Normatif, Empiris dan Metodologis',
+        members: ['Dewi Rakhmawati', 'Fathan Mubina']
+      },
+      {
+        name: 'Kelompok 2 (Diskusi)',
+        topic: 'Penulisan Tafsir: Tahlili, Ijmali, Muqaran dan Maudlu\'i',
+        members: ['M. Gesta Haikal Maulidan', 'Asep Trisna Sanjaya']
+      },
+      {
+        name: 'Kelompok 3 (Diskusi)',
+        topic: 'Tafsir Maudlu\'i: Urgensi Tafsir Maudlu\'i dalam Kajian Kontemporer',
+        members: ['Izzulhaq Pratama Mulkan', 'Nunung Nurohmah']
+      },
+      {
+        name: 'Kelompok 4 (Diskusi)',
+        topic: 'Kaidah Tafsir: Am-Khas, Mutlaq-Muqayyad, Mujmal-Mubayyan, Haqiqat-Majaz',
+        members: ['Riyan Haq', 'Wisam Ridwan']
+      },
+      {
+        name: 'Kelompok 5 (Diskusi)',
+        topic: 'Hermeneutika dan Pendekatan Multidisipliner: Dialektika antara Teks Al-Qur\'an, Realitas Sosiologis Lembaga Pendidikan, dan Teori Manajemen Modern',
+        members: ['Nurlaela', 'Veni Ayu Rahmayanti']
+      },
+      {
+        name: 'Kelompok 6 (Diskusi)',
+        topic: 'Teologi Manajemen & Konsep Perencanaan (Planning): Tafsir QS. Al-Hasyr/59:18 dan QS. Yusuf tentang manajemen krisis, visi futuristik, dan perencanaan strategis lembaga pendidikan',
+        members: ['Lutfhi Syamsul Maarif', 'Hana Handayani']
+      },
+      {
+        name: 'Kelompok 7 (Diskusi)',
+        topic: 'Pengorganisasian (Organizing) dan Struktur Kelembagaan: Tafsir QS. Ali \'Imran/3:103-104 dan QS. As-Saff/61:4 tentang soliditas organisasi, job description, dan tata kelola (governance) lembaga pendidikan',
+        members: ['Nurhidayah', 'Restu Rosita']
+      },
+      {
+        name: 'Kelompok 8 (Diskusi)',
+        topic: 'Kepemimpinan Pendidikan (Leading/Actuating) & Komunikasi: Tafsir QS. Ali \'Imran/3:159 (kepemimpinan transformatif-humanis) dan konsep Qaulan Sadida/Layyina dalam komunikasi organisasi madrasah',
+        members: ['Zaki Firdaus Al Hamid Rakasiwi', 'Santi Nuraidah']
+      },
+      {
+        name: 'Kelompok 9 (Diskusi)',
+        topic: 'Pengawasan (Controlling) dan Penjaminan Mutu (Quality Assurance): Tafsir QS. Al-Infithar: 10-12 (konsep Raqib-Atid sebagai basis internal auditing) dan QS. Al-Ashr tentang efisiensi waktu dan mutu',
+        members: ['Imam Amanullah', 'Nasya Millatul Faza']
+      },
+      {
+        name: 'Kelompok 10 (Diskusi)',
+        topic: 'Manajemen SDM (Pendidik & Tenaga Kependidikan): Tafsir QS. Al-Qashash/28:26 tentang kriteria SDM berbasis Al-Qawiyyu (kompetensi) dan Al-Amin (integritas/rekam jejak)',
+        members: ['Navis Irvanan Ni\'am', 'Asep Abdul Ajij Alutfi']
+      },
+      {
+        name: 'Kelompok 11 (Diskusi)',
+        topic: 'Manajemen Pembiayaan & Sarana Prasarana Pendidikan: Tafsir QS. Al-Baqarah/2:261 (filosofi investasi pendidikan) dan konsep transparansi serta akuntabilitas finansial dalam Al-Qur\'an',
+        members: ['Nadia Nurul Fauziah', 'Bilbina Balquist']
+      },
+      {
+        name: 'Kelompok 12 (Diskusi)',
+        topic: 'Manajemen Humas dan Pemasaran Lembaga Pendidikan: Tafsir QS. Al-Hujurat/49:13 (syu\'uban wa qaba\'ila sebagai basis jejaring/networking) dan strategi membangun citra (branding) lembaga berdasarkan nilai Al-Qur\'an',
+        members: ['Gani Suganda', 'Hazzaj Al Hawary Robbani']
+      },
+
+      // KELOMPOK PENULISAN ARTIKEL JURNAL SINTA 3 TMPI (4 KELOMPOK @ 6 ORANG)
+      {
+        name: 'Kelompok Artikel 1',
+        topic: 'Penulisan Artikel Jurnal SINTA 3 - Fokus 1: Aplikasi Kaidah \'Am dan Khash dalam Ulumul Qur\'an untuk Formulasi Kebijakan dan Regulasi Lembaga Pendidikan Islam',
+        members: [
+          'Hana Handayani',
+          'Izzulhaq Pratama Mulkan',
+          'Zaki Firdaus Al Hamid Rakasiwi',
+          'Gani Suganda',
+          'Restu Rosita',
+          'Lutfhi Syamsul Maarif'
+        ]
+      },
+      {
+        name: 'Kelompok Artikel 2',
+        topic: 'Penulisan Artikel Jurnal SINTA 3 - Fokus 2: Pendekatan Asbabun Nuzul dalam Ulumul Qur\'an sebagai Basis Analisis Kebutuhan (Need Assessment) Perencanaan Strategis Pendidikan',
+        members: [
+          'Asep Abdul Ajij Alutfi',
+          'Fathan Mubina',
+          'Navis Irvanan Ni\'am',
+          'M. Gesta Haikal Maulidan',
+          'Riyan Haq',
+          'Bilbina Balquist'
+        ]
+      },
+      {
+        name: 'Kelompok Artikel 3',
+        topic: 'Penulisan Artikel Jurnal SINTA 3 - Fokus 3: Kontekstualisasi Konsep Muhkam dan Mutasyabih dalam Ulumul Qur\'an terhadap Manajemen Konflik Organisasi Madrasah',
+        members: [
+          'Veni Ayu Rahmayanti',
+          'Hazzaj Al Hawary Robbani',
+          'Nurlaela',
+          'Santi Nuraidah',
+          'Nadia Nurul Fauziah',
+          'Nunung Nurohmah'
+        ]
+      },
+      {
+        name: 'Kelompok Artikel 4',
+        topic: 'Penulisan Artikel Jurnal SINTA 3 - Fokus 4: Analisis Tafsir Maudlu\'i sebagai Metode Ulumul Qur\'an dalam Mengonstruksi Teori Kepemimpinan Pendidikan Islam Kontemporer',
+        members: [
+          'Asep Trisna Sanjaya',
+          'Dewi Rakhmawati',
+          'Imam Amanullah',
+          'Nurhidayah',
+          'Nasya Millatul Faza',
+          'Wisam Ridwan'
+        ]
+      }
+    ],
+    guidelineSections: [
+      {
+        heading: '4 PILIHAN JUDUL & FOKUS ARTIKEL JURNAL SINTA 3',
+        items: [
+          '1. Aplikasi Kaidah \'Am dan Khash dalam Ulumul Qur\'an untuk Formulasi Kebijakan dan Regulasi Lembaga Pendidikan Islam (Fokus: Menurunkan kebijakan makro madrasah/pesantren menjadi aturan mikro/SOP yang efektif).',
+          '2. Pendekatan Asbabun Nuzul dalam Ulumul Qur\'an sebagai Basis Analisis Kebutuhan (Need Assessment) Perencanaan Strategis Pendidikan (Fokus: Menelaah latar belakang turunnya ayat sebagai model teoretis analisis SWOT/RKJM).',
+          '3. Kontekstualisasi Konsep Muhkam dan Mutasyabih dalam Ulumul Qur\'an terhadap Manajemen Konflik Organisasi Madrasah (Fokus: Memetakan konflik prinsipil vs fleksibel serta teknik pengelolaannya).',
+          '4. Analisis Tafsir Maudlu\'i sebagai Metode Ulumul Qur\'an dalam Mengonstruksi Teori Kepemimpinan Pendidikan Islam Kontemporer (Fokus: Artikel konseptual menawarkan penemuan teori baru via metode Maudlu\'i).'
+        ]
+      }
+    ]
   },
   {
     id: 'ppi',
     code: 'PPI',
     name: 'Perencanaan Pendidikan Islam',
-    lecturer: 'Dr. Dodo Murtado M.Si',
+    lecturer: 'Dr. H. Dodo Murtado, M.Si',
     day: 'Sabtu',
     time: '06:30 - 09:00',
     room: 'Ruang 16 Lt.3',
@@ -174,16 +538,62 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#C7D2FE',
       accent: '#4F46E5',
     },
-    syllabusSummary: 'Menyusun Renstra (Rencana Strategis) dan Operasional lembaga pendidikan Islam berbasis analisis SWOT dan proyeksi kualitatif.',
-    syllabusPdfs: [],
+    syllabusSummary: 'Membahas konsep, teori, prinsip, & praktik perencanaan pendidikan Islam berbasis Outcome-Based Education (OBE). Menghasilkan dokumen proyek Renstra Lembaga Pendidikan Islam 7 BAB.',
+    syllabusPdfUrl: '/syllabus/RPS_PPI_Perencanaan_Pendidikan_Islam.pdf',
+    pdfFileName: 'RPS_Perencanaan_Pendidikan_Islam.pdf',
+    syllabusPdfs: [
+      {
+        id: 'pdf-ppi-1',
+        name: 'RPS_Perencanaan_Pendidikan_Islam.pdf',
+        url: '/syllabus/RPS_PPI_Perencanaan_Pendidikan_Islam.pdf'
+      }
+    ],
     tasks: [],
-    groups: []
+    groups: [
+      { name: 'Topik 1', topic: 'Hakikat dan konsep perencanaan pendidikan', members: ['Nurlaela'] },
+      { name: 'Topik 2', topic: 'Perencanaan dalam perspektif manajemen pendidikan Islam', members: ['Imam Amanullah'] },
+      { name: 'Topik 3', topic: 'Landasan filosofis, sosiologis, psikologis, ekonomi, dan religius', members: ['Fathan Mubina'] },
+      { name: 'Topik 4', topic: 'Prinsip dan fungsi perencanaan pendidikan', members: ['Asep Trisna Sanjaya'] },
+      { name: 'Topik 5', topic: 'Teori dan pendekatan perencanaan pendidikan', members: ['Gani Suganda'] },
+      { name: 'Topik 6', topic: 'Model-model perencanaan pendidikan', members: ['Nadia Nurul Fauziah'] },
+      { name: 'Topik 7', topic: 'Perencanaan strategis dan operasional', members: ['M. Gesta Haikal Maulidan'] },
+      { name: 'Topik 8', topic: 'Analisis lingkungan pendidikan', members: ['Nasya Millatul Faza'] },
+      { name: 'Topik 9', topic: 'Analisis kebutuhan pendidikan', members: ['Nunung Nurohmah'] },
+      { name: 'Topik 10', topic: 'Analisis SWOT/TOWS', members: ['Veni Ayu Rahmayanti'] },
+      { name: 'Topik 11', topic: 'Analisis data pendidikan', members: ['Wisam Ridwan'] },
+      { name: 'Topik 12', topic: 'Penetapan visi, misi, tujuan, sasaran, indikator', members: ['Nurhidayah'] },
+      { name: 'Topik 13', topic: 'Penyusunan strategi dan program', members: ['Navis Irvanan Ni\'am'] },
+      { name: 'Topik 14', topic: 'Perencanaan pengembangan SDM pendidikan', members: ['Hazzaj Al Hawary Robbani'] },
+      { name: 'Topik 15', topic: 'Perencanaan sarana dan prasarana', members: ['Hana Handayani'] },
+      { name: 'Topik 16', topic: 'Perencanaan digitalisasi pendidikan', members: ['Asep Abdul Ajij Alutfi'] },
+      { name: 'Topik 17', topic: 'Perencanaan pembiayaan pendidikan', members: ['Riyan Haq'] },
+      { name: 'Topik 18', topic: 'Analisis risiko', members: ['Dewi Rakhmawati'] },
+      { name: 'Topik 19', topic: 'Monitoring dan evaluasi', members: ['Izzulhaq Pratama Mulkan'] },
+      { name: 'Topik 20', topic: 'Penyusunan Renstra/RKAS/RKJM/program pengembangan lembaga', members: ['Zaki Firdaus Al Hamid Rakasiwi', 'Santi Nuraidah'] },
+      { name: 'Topik 21', topic: 'Perencanaan mutu pendidikan Islam', members: ['Lutfhi Syamsul Maarif'] },
+      { name: 'Topik 22', topic: 'Inovasi dan keberlanjutan perencanaan pendidikan Islam', members: ['Bilbina Balquist'] },
+      { name: 'Topik 23', topic: 'Penyusunan proyek perencanaan pendidikan Islam berbasis data', members: ['Restu Rosita'] }
+    ],
+    guidelineSections: [
+      {
+        heading: 'DOKUMEN PROYEK RENSTRA 7 BAB',
+        items: [
+          'BAB I PENDAHULUAN: Latar Belakang, Identifikasi Masalah, Tujuan Perencanaan.',
+          'BAB II ANALISIS KONDISI: Profil Lembaga, Analisis Internal & Eksternal, Needs Assessment, Analisis SWOT/TOWS.',
+          'BAB III PERENCANAAN STRATEGIS: Visi, Misi, Tujuan Strategis, Sasaran, Key Performance Indicators (KPI), Formulasi Strategi.',
+          'BAB IV PROGRAM PENGEMBANGAN: Program Prioritas, Rencana Kegiatan, Target, Penanggung Jawab (PJ), Timeline, Resource Plan.',
+          'BAB V PEMBIAYAAN: Rencana Anggaran Biaya (RAB), Sumber Pembiayaan, Prioritas Anggaran, Efisiensi Biaya.',
+          'BAB VI RISIKO, MONITORING, DAN EVALUASI: Risk Register, Mitigasi Risiko, Sistem Monitoring, Evaluasi Output/Outcome/Impact, Indikator Keberhasilan.',
+          'BAB VII PENUTUP: Kesimpulan & Rekomendasi Kebijakan Pengembangan.'
+        ]
+      }
+    ]
   },
   {
     id: 'mmtpi',
     code: 'MMTPI',
     name: 'Manajemen Mutu Terpadu Pend. Islam',
-    lecturer: 'Dr. H. Hasbiyallah M.Ag.',
+    lecturer: 'Dr. H. Hasbiyallah, M.Ag.',
     day: 'Sabtu',
     time: '09:00 - 11:30',
     room: 'Ruang 16 Lt.3',
@@ -200,10 +610,69 @@ export const INITIAL_COURSES: Course[] = [
       darkText: '#6EE7B7',
       accent: '#059669',
     },
-    syllabusSummary: 'Penerapan konsep Total Quality Management (TQM), standar mutu BAN-S/M, serta kepuasan pemangku kepentingan pendidikan Islam.',
-    syllabusPdfs: [],
+    syllabusSummary: 'Penerapan konsep Total Quality Management (TQM/MMT) dalam pendidikan: sejarah & tokoh (Deming, Juran, Crosby), model TQM/TQE/ISO/Malcolm Baldrige, alat bantu (Fishbone, Pareto), & SPMI BAN-S/M.',
+    syllabusPdfUrl: '/syllabus/RPS_MMTPI_Manajemen_Mutu_Terpadu.pdf',
+    pdfFileName: 'RPS_Manajemen_Mutu_Terpadu.pdf',
+    syllabusPdfs: [
+      {
+        id: 'pdf-mmtpi-1',
+        name: 'RPS_Manajemen_Mutu_Terpadu.pdf',
+        url: '/syllabus/RPS_MMTPI_Manajemen_Mutu_Terpadu.pdf'
+      }
+    ],
     tasks: [],
-    groups: []
+    groups: [
+      {
+        name: 'Kelompok 1',
+        topic: 'Sejarah Gerakan Kualitas: Tokoh-tokoh Kualitas (Deming, Juran, Crosby) dan Perkembangan TQM',
+        members: ['Asep Trisna Sanjaya', 'Nunung Nurohmah', 'Nurhidayah']
+      },
+      {
+        name: 'Kelompok 2',
+        topic: 'Konsep Dasar MMT: Definisi, Filosofi, dan Paradigma Mutu Terpadu',
+        members: ['Lutfhi Syamsul Maarif', 'Nasya Millatul Faza', 'Fathan Mubina']
+      },
+      {
+        name: 'Kelompok 3',
+        topic: 'Prinsip-prinsip MMT: Fokus pada Pelanggan, Perbaikan Berkelanjutan, Keterlibatan Total',
+        members: ['Bilbina Balquist', 'Asep Abdul Ajij Alutfi', 'Zaki Firdaus Al Hamid Rakasiwi']
+      },
+      {
+        name: 'Kelompok 4',
+        topic: 'Model-model MMT dalam Pendidikan: TQM, TQE, ISO 9000, Malcolm Baldrige',
+        members: ['Dewi Rakhmawati', 'Santi Nuraidah', 'Hazzaj Al Hawary Robbani']
+      },
+      {
+        name: 'Kelompok 5',
+        topic: 'Kepemimpinan Mutu dan Budaya Organisasi dalam Lembaga Pendidikan',
+        members: ['Veni Ayu Rahmayanti', 'Siti Nur Latifatul Qolbiyah']
+      },
+      {
+        name: 'Kelompok 6',
+        topic: 'Tim Kerja (Teamwork) dan Pemberdayaan Sumber Daya Manusia',
+        members: ['Navis Irvanan Ni\'am', 'Riyan Haq', 'Imam Amanullah']
+      },
+      {
+        name: 'Kelompok 7',
+        topic: 'Alat dan Teknik MMT: Fishbone Diagram, Pareto Chart, Histogram',
+        members: ['Gani Suganda', 'Restu Rosita']
+      },
+      {
+        name: 'Kelompok 8',
+        topic: 'Alat dan Teknik MMT Lanjutan: Control Chart, Run Chart, Scatter Diagram',
+        members: ['Wisam Ridwan', 'Hana Handayani']
+      },
+      {
+        name: 'Kelompok 9',
+        topic: 'Perencanaan Strategis Pengembangan Mutu Pendidikan',
+        members: ['Nurlaela', 'Nadia Nurul Fauziah']
+      },
+      {
+        name: 'Kelompok 10',
+        topic: 'Sistem Penjaminan Mutu Pendidikan Nasional: BAN-S/M, BAN-PT, ISO, NAAC',
+        members: ['Izzulhaq Pratama Mulkan', 'M. Gesta Haikal Maulidan']
+      }
+    ]
   },
   {
     id: 'dmpi',
