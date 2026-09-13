@@ -354,6 +354,13 @@ function MainApp() {
   const [editPjName, setEditPjName] = useState('');
   const [editPjContact, setEditPjContact] = useState('');
 
+  // Smart Import Kelompok State (Parse WhatsApp text or PDF lists)
+  const [showSmartImportModal, setShowSmartImportModal] = useState<boolean>(false);
+  const [importTargetCourseId, setImportTargetCourseId] = useState<string>('pmpi');
+  const [importRawText, setImportRawText] = useState<string>('');
+  const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
+  const [parsedPreviewGroups, setParsedPreviewGroups] = useState<Group[]>([]);
+
   // Fullscreen In-App Mobile PDF Viewer State
   const [fullscreenPdf, setFullscreenPdf] = useState<SyllabusFile | null>(null);
 
@@ -674,6 +681,130 @@ function MainApp() {
       }
       return c;
     }));
+  };
+
+  // Smart Parser for Group Lists from WhatsApp or Syllabus Text
+  const parseSmartImportText = (text: string): Group[] => {
+    if (!text || !text.trim()) return [];
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const result: Group[] = [];
+    let current: Group | null = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Match group headers: e.g. "Kelompok 1", "Kel 1", "Group 1", "Topik 1", "1. Kelompok 1"
+      const groupHeaderMatch = line.match(/^(?:kelompok|kel|topik|group)\s*([0-9ivxlcdm]+|\w+)(.*)$/i)
+        || line.match(/^(\d+)[.)]\s*(?:kelompok|kel|topik)?\s*(.*)$/i);
+
+      if (groupHeaderMatch) {
+        if (current && (current.members.length > 0 || current.topic)) {
+          result.push(current);
+        }
+        const num = groupHeaderMatch[1] || `${result.length + 1}`;
+        const rest = (groupHeaderMatch[2] || '').replace(/^[:-]\s*/, '').trim();
+        current = {
+          name: `Kelompok ${num}`,
+          topic: rest || '',
+          members: []
+        };
+        continue;
+      }
+
+      if (!current) {
+        current = {
+          name: `Kelompok ${result.length + 1}`,
+          topic: '',
+          members: []
+        };
+      }
+
+      // Match Topic / Materi / Judul
+      const topicMatch = line.match(/^(?:topik|materi|judul|tema|kajian)\s*[:-]\s*(.+)$/i);
+      if (topicMatch) {
+        current.topic = topicMatch[1].trim();
+        continue;
+      }
+
+      // Match Anggota / Presenter
+      const membersMatch = line.match(/^(?:anggota|pemakalah|presenter|penulis|mahasiswa)\s*[:-]\s*(.+)$/i);
+      if (membersMatch) {
+        const names = membersMatch[1].split(/[,;]+/).map(n => n.trim()).filter(Boolean);
+        current.members.push(...names);
+        continue;
+      }
+
+      // Match bulleted / numbered members: "1. Fathan", "- Dewi", "* Restu"
+      const bulletMatch = line.match(/^[-*•\d+.]+\s*(.+)$/);
+      if (bulletMatch) {
+        const item = bulletMatch[1].trim();
+        if (!current.topic && (item.toLowerCase().includes('manajemen') || item.toLowerCase().includes('analisis') || item.toLowerCase().includes('konsep') || item.toLowerCase().includes('teori') || item.length > 45)) {
+          current.topic = item;
+        } else {
+          current.members.push(item);
+        }
+        continue;
+      }
+
+      // Normal line: if no topic yet, assign as topic, otherwise treat as member(s)
+      if (!current.topic) {
+        current.topic = line;
+      } else {
+        if (line.includes(',')) {
+          const names = line.split(',').map(n => n.trim()).filter(Boolean);
+          current.members.push(...names);
+        } else {
+          current.members.push(line);
+        }
+      }
+    }
+
+    if (current && (current.members.length > 0 || current.topic)) {
+      result.push(current);
+    }
+
+    return result.map(g => ({
+      ...g,
+      members: Array.from(new Set(g.members.map(m => m.trim()).filter(Boolean)))
+    }));
+  };
+
+  const handleImportTextChange = (text: string) => {
+    setImportRawText(text);
+    const parsed = parseSmartImportText(text);
+    setParsedPreviewGroups(parsed);
+  };
+
+  const handleApplyImportGroups = () => {
+    if (parsedPreviewGroups.length === 0) {
+      alert('Belum ada kelompok yang berhasil terdeteksi dari teks. Silakan periksa atau sesuaikan teks.');
+      return;
+    }
+
+    const targetCourse = courses.find(c => c.id === importTargetCourseId);
+    if (!targetCourse) return;
+
+    setCourses(prev => {
+      const updated = prev.map(c => {
+        if (c.id === importTargetCourseId) {
+          const newGroups = importMode === 'append'
+            ? [...(c.groups || []), ...parsedPreviewGroups]
+            : parsedPreviewGroups;
+          return { ...c, groups: newGroups };
+        }
+        return c;
+      });
+      localStorage.setItem('mps2_courses', JSON.stringify(updated));
+      supabase.from('mps2_store').upsert({ id: 'courses_data', data: updated, updated_at: new Date().toISOString() });
+      return updated;
+    });
+
+    const count = parsedPreviewGroups.length;
+    setShowSmartImportModal(false);
+    setImportRawText('');
+    setParsedPreviewGroups([]);
+
+    alert(`✅ Berhasil menyimpan ${count} kelompok ke mata kuliah [${targetCourse.code}] ${targetCourse.name}!\nData otomatis tersimpan ke Cloud Supabase dan aktif di tab Kelompok serta Agenda & Tugas.`);
   };
 
   const handleToggleTaskStatus = (courseId: string, taskId: string) => {
@@ -1224,12 +1355,27 @@ function MainApp() {
                       <span>Daftar Pembagian Kelompok ({allGroups.length})</span>
                     </h3>
                     {isLoggedInAdmin ? (
-                      <button
-                        onClick={() => setShowAddGroupModal(true)}
-                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition-colors shadow-xs"
-                      >
-                        <Plus className="w-4 h-4" /> Tambah Kelompok
-                      </button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => {
+                            setImportTargetCourseId(selectedCourse.id);
+                            setImportRawText('');
+                            setParsedPreviewGroups([]);
+                            setShowSmartImportModal(true);
+                          }}
+                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                          title="Impor daftar kelompok otomatis dari teks WhatsApp atau PDF"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>⚡ Impor Pola Teks / WA</span>
+                        </button>
+                        <button
+                          onClick={() => setShowAddGroupModal(true)}
+                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition-colors shadow-xs"
+                        >
+                          <Plus className="w-4 h-4" /> Tambah Manual
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg flex items-center gap-1">
                         <Lock className="w-3 h-3 text-amber-500" /> Khusus Admin Kosma
@@ -2525,6 +2671,37 @@ function MainApp() {
                       </button>
                     </div>
 
+                    {/* SECTION: SMART IMPORT KELOMPOK GENERATOR */}
+                    <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gradient-to-br from-purple-950/40 to-gray-900 border-purple-800/50' : 'bg-gradient-to-br from-purple-50/70 to-white border-purple-200'} space-y-3 shadow-2xs`}>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                            <Sparkles className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-extrabold text-xs sm:text-sm text-purple-950 dark:text-purple-200">
+                              ⚡ Smart Generator & Import Kelompok Otomatis
+                            </h3>
+                            <p className="text-[11px] text-purple-700/80 dark:text-purple-300/80">
+                              Tempel teks dari WhatsApp dosen atau silabus untuk mengisi kelompok secara otomatis per mata kuliah.
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setImportRawText('');
+                            setParsedPreviewGroups([]);
+                            setShowSmartImportModal(true);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs shrink-0"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Buka Smart Importer</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* SQL Guide Toggle */}
                     {showSqlGuide && (
                       <div className="p-4 rounded-2xl bg-purple-950 border border-purple-800 text-purple-200 text-xs space-y-2">
@@ -3104,6 +3281,196 @@ CREATE POLICY "Public access" ON mps2_store FOR ALL USING (true) WITH CHECK (tru
                 className="flex-1 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-xs"
               >
                 Simpan Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SMART IMPORT KELOMPOK OTOMATIS */}
+      {showSmartImportModal && (
+        <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
+          <div className={`w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl ${
+            darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-bold shadow-xs">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base">⚡ Smart Import Kelompok Otomatis</h3>
+                  <p className="text-xs text-slate-500 dark:text-gray-400">
+                    Otomatis membaca nama kelompok, materi bahasan & anggota dari teks WA atau PDF
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowSmartImportModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-gray-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+              {/* Step 1: Pilih Mata Kuliah Sasaran */}
+              <div className="space-y-1.5">
+                <label className="font-bold flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
+                  <BookOpen className="w-4 h-4" /> 1. Pilih Mata Kuliah Sasaran:
+                </label>
+                <select
+                  value={importTargetCourseId}
+                  onChange={(e) => setImportTargetCourseId(e.target.value)}
+                  className={`w-full p-2.5 rounded-xl border font-bold outline-none text-xs ${
+                    darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}
+                >
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>
+                      [{c.code}] {c.name} — ({ (c.groups || []).length } Kelompok Terdaftar)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Step 2: Input Teks / WhatsApp */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <label className="font-bold flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
+                    <span>✍️ 2. Tempel Teks Daftar Kelompok:</span>
+                  </label>
+                  
+                  {/* Quick Format Templates */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-slate-400">Contoh:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleImportTextChange(`Kelompok 1\nTopik: Analisis Kebijakan Manajemen Pendidikan Islam\nAnggota: Fathan Mubina, Dewi Rakhmawati, Restu Rosita\n\nKelompok 2\nTopik: Strategi Pengembangan SDM Madrasah Unggul\nAnggota: Lutfhi Syamsul Maarif, Nasya Millatul Faza, Asep Trisna`)}
+                      className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-bold"
+                    >
+                      Pola WA 1
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleImportTextChange(`1. Kelompok 1: Kepemimpinan Mutu Pendidikan\n- Fathan Mubina\n- Dewi Rakhmawati\n\n2. Kelompok 2: Manajemen Pembiayaan & Anggaran\n- Restu Rosita\n- Santi Nuraidah`)}
+                      className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-bold"
+                    >
+                      Pola WA 2
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  rows={6}
+                  placeholder={`Tempel daftar kelompok dari WhatsApp atau dokumen di sini...\nContoh:\nKelompok 1\nTopik: Konsep Dasar Manajemen\nAnggota: Fathan, Dewi, Restu`}
+                  value={importRawText}
+                  onChange={(e) => handleImportTextChange(e.target.value)}
+                  className={`w-full p-3 rounded-2xl border outline-none font-mono text-xs leading-relaxed ${
+                    darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}
+                />
+              </div>
+
+              {/* Step 3: Mode Impor */}
+              <div className="p-3 rounded-xl border bg-slate-50 dark:bg-gray-800/40 border-slate-200 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap">
+                <span className="font-bold text-slate-700 dark:text-gray-300">Mode Penyimpanan:</span>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      value="replace"
+                      checked={importMode === 'replace'}
+                      onChange={() => setImportMode('replace')}
+                    />
+                    <span className="font-semibold">Timpa Kelompok Lama</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      value="append"
+                      checked={importMode === 'append'}
+                      onChange={() => setImportMode('append')}
+                    />
+                    <span className="font-semibold">Tambahkan (Gabung)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Step 4: Live Preview Hasil Parsing */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-4 h-4" /> 
+                    Pratinjau Terdeteksi: {parsedPreviewGroups.length} Kelompok
+                  </span>
+                  {parsedPreviewGroups.length > 0 && (
+                    <span className="text-[11px] text-slate-400">
+                      Siap diterapkan ke {courses.find(c => c.id === importTargetCourseId)?.code}
+                    </span>
+                  )}
+                </div>
+
+                {parsedPreviewGroups.length === 0 ? (
+                  <div className="p-6 text-center rounded-2xl border border-dashed border-slate-300 dark:border-gray-700 text-slate-400">
+                    Belum ada data kelompok. Ketik atau tempel teks daftar kelompok di atas.
+                  </div>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                    {parsedPreviewGroups.map((g, idx) => (
+                      <div key={idx} className="p-3 rounded-xl border bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700 space-y-1.5 shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-extrabold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[11px]">
+                            {g.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {g.members.length} Anggota
+                          </span>
+                        </div>
+                        {g.topic && (
+                          <p className="font-bold text-slate-800 dark:text-gray-100 text-xs">
+                            📌 {g.topic}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {g.members.length === 0 ? (
+                            <span className="text-[10px] text-amber-500 italic">Nama anggota belum terdeteksi</span>
+                          ) : (
+                            g.members.map((m, midx) => (
+                              <span key={midx} className="px-2 py-0.5 rounded bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-200 text-[10px] font-semibold">
+                                👤 {m}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-gray-800 flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowSmartImportModal(false)}
+                className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-gray-700 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={parsedPreviewGroups.length === 0}
+                onClick={handleApplyImportGroups}
+                className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white flex items-center gap-1.5 shadow-xs transition-all"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Simpan {parsedPreviewGroups.length} Kelompok ke Web</span>
               </button>
             </div>
           </div>
