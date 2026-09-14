@@ -344,6 +344,18 @@ function MainApp() {
   const [chatQuery, setChatQuery] = useState('');
   const [chatMessages, setChatMessages] = useState<{ sender: 'user' | 'ai'; text: string }[]>([]);
 
+  // Helper to format AI text nicely (render **bold** into <strong>, without raw asterisks)
+  const renderFormattedAiText = (text: string) => {
+    // Split by **text**
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-extrabold text-purple-700 dark:text-purple-300">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
   // Task & Group Modals/Forms
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -880,10 +892,11 @@ Daftar Kelompok Terbagi (${(selectedCourse.groups || []).length}):
 ${(selectedCourse.groups || []).map(g => `- ${g.name}: ${g.topic || 'Topik belum ditentukan'} (Anggota: ${(g.members || []).join(', ')})`).join('\n') || 'Belum ada pembagian kelompok'}
 
 Petunjuk Menjawab:
-- Jawablah secara natural, luwes, mengalir, dan komunikatif layaknya asisten AI modern yang cerdas dan bersahabat.
-- Sesuaikan gaya bahasa: jika mahasiswa bertanya santai atau curhat ide riset, jawablah dengan hangat dan solutif; jika bertanya teknis silabus/tugas, jawablah secara terstruktur dan informatif.
-- Gunakan data mata kuliah di atas sebagai rujukan fakta yang akurat.
-- Gunakan bahasa Indonesia yang baik, luwes, dan mudah dipahami.`;
+- Berbicaralah santai, luwes, mengalir, dan ramah selayaknya asisten AI pintar (seperti ChatGPT atau Gemini Web pada umumnya).
+- JANGAN selalu mengulang perkenalan panjang atau menyebutkan nama dosen dan jadwal di setiap jawaban kecuali mahasiswa memang menanyakannya.
+- Jika mahasiswa menyapa ("halo", "hai", dll), sambutlah dengan santai dan hangat, tanyakan apa yang sedang dipersiapkan atau ingin didiskusikan.
+- Hindari penggunaan tanda bintang/bintang dua (**) yang berlebihan atau beruntun agar teks nyaman dan bersih dibaca.
+- Jadilah teman diskusi akademis yang asyik, solutif, dan bisa diajak curhat seputar materi kuliah maupun tugas.`;
 
       // Try primary model (gemini-3.6-flash) with fallback to gemini-flash-latest or gemini-3.5-flash
       const candidateModels = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash'];
@@ -1762,7 +1775,7 @@ Petunjuk Menjawab:
                               ? 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700' 
                               : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-none shadow-2xs'
                         }`}>
-                          {msg.text}
+                          {msg.sender === 'ai' ? renderFormattedAiText(msg.text) : msg.text}
                         </div>
                       </div>
                     ))
