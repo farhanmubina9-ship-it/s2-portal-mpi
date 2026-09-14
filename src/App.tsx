@@ -24,16 +24,16 @@ export interface ClassAnnouncement {
 }
 
 const DEFAULT_ANNOUNCEMENT: ClassAnnouncement = {
-  isActive: true,
-  title: 'Agenda Kuliah Terdekat & Pengumuman',
-  courseName: 'Dasar-Dasar Manajemen Pendidikan Islam (DMPI)',
-  lecturerName: 'Dr. Ujang Nurjaman, M.Ag.',
-  dayDate: 'Sabtu, 20 September 2026',
-  time: '08:00 - 09:40 WIB',
-  location: 'Gedung Pascasarjana Lt. 3 / Ruang 304',
+  isActive: false,
+  title: 'Agenda Terdekat & Pengumuman',
+  courseName: '',
+  lecturerName: '',
+  dayDate: '',
+  time: '',
+  location: '',
   meetUrl: '',
-  agenda: 'Orientasi Silabus Perkuliahan & Pembagian Kelompok Diskusi',
-  notes: 'Harap hadir tepat waktu dan mempersiapkan file silabus serta laptop/tablet untuk koordinasi.',
+  agenda: '',
+  notes: '',
 };
 
 
@@ -190,7 +190,14 @@ function MainApp() {
     const saved = localStorage.getItem('mps2_announcement');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.courseName === 'Dasar-Dasar Manajemen Pendidikan Islam (DMPI)' && parsed.notes?.includes('laptop/tablet')) {
+            localStorage.removeItem('mps2_announcement');
+            return DEFAULT_ANNOUNCEMENT;
+          }
+          return parsed;
+        }
       } catch (e) {
         console.error('Error parsing announcement cache:', e);
       }
@@ -1946,7 +1953,40 @@ Petunjuk Menjawab:
               <div className="space-y-4">
                 
                 {/* 📢 BROADCAST AGENDA KULIAH SELANJUTNYA & PENGUMUMAN RESMI KOSMA */}
-                {announcement && announcement.isActive && (
+                {(!announcement || !announcement.isActive || !announcement.courseName?.trim()) ? (
+                  /* KONDISI KOSMA BELUM NGISI: CUKUP BAR TULISAN AGENDA TERDEKAT DAN PENGUMUMAN */
+                  <div className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                    darkMode 
+                      ? 'bg-gray-900 border-gray-800 text-gray-300' 
+                      : 'bg-white border-slate-200 text-slate-700 shadow-xs'
+                  }`}>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <Megaphone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-gray-100">
+                          Agenda Terdekat & Pengumuman
+                        </h3>
+                        <p className="text-[11px] text-slate-400 dark:text-gray-500">
+                          {isLoggedInAdmin 
+                            ? 'Belum ada agenda aktif. Klik untuk mengisi jadwal/pengumuman di Panel Kosma.' 
+                            : 'Belum ada jadwal atau pengumuman terbaru dari Kosma.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isLoggedInAdmin && (
+                      <button
+                        onClick={() => setActiveTab('admin')}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shrink-0 transition-all shadow-xs"
+                      >
+                        + Isi Pengumuman
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  /* KONDISI KOSMA SUDAH NGISI: TAMPILKAN KARTU RINCIAN LENGKAP */
                   <div className={`p-4 sm:p-5 rounded-2xl border shadow-md relative overflow-hidden transition-all ${
                     darkMode 
                       ? 'bg-gradient-to-br from-emerald-950/70 via-gray-900 to-indigo-950/50 border-emerald-800/80 text-white' 
