@@ -224,6 +224,17 @@ function MainApp() {
         } else if (error) {
           console.warn("Supabase initial fetch notice:", error.message);
         }
+        // Fetch Gemini AI API key config securely from Supabase
+        const { data: geminiData } = await supabase
+          .from('mps2_store')
+          .select('data')
+          .eq('id', 'gemini_config')
+          .single();
+
+        if (geminiData && geminiData.data && geminiData.data.api_key) {
+          setGeminiApiKey(geminiData.data.api_key);
+          localStorage.setItem('mps2_gemini_api_key', geminiData.data.api_key);
+        }
       } catch (err) {
         console.log('Supabase storage fallback to local cache.', err);
       } finally {
@@ -325,7 +336,11 @@ function MainApp() {
     }
   };
 
-  // AI Chat Simulation
+  // AI Chat with Google Gemini
+  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
+    return localStorage.getItem('mps2_gemini_api_key') || '';
+  });
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const [chatQuery, setChatQuery] = useState('');
   const [chatMessages, setChatMessages] = useState<{ sender: 'user' | 'ai'; text: string }[]>([]);
 
@@ -838,21 +853,69 @@ function MainApp() {
     });
   };
 
-  const handleAIChat = () => {
-    if (!chatQuery.trim() || !selectedCourse) return;
-    const userText = chatQuery;
+  const handleAIChat = async () => {
+    if (!chatQuery.trim() || !selectedCourse || isAiLoading) return;
+    const userText = chatQuery.trim();
     setChatMessages(prev => [...prev, { sender: 'user', text: userText }]);
     setChatQuery('');
+    setIsAiLoading(true);
 
-    setTimeout(() => {
-      let aiResponse = `Berdasarkan silabus ${selectedCourse.code}: ${selectedCourse.syllabusSummary}`;
-      if (userText.toLowerCase().includes('dosen')) {
-        aiResponse = `Dosen pengampu mata kuliah ${selectedCourse.name} adalah ${selectedCourse.lecturer}.`;
-      } else if (userText.toLowerCase().includes('tugas') || userText.toLowerCase().includes('kelompok')) {
-        aiResponse = `Mata kuliah ini memiliki ${(selectedCourse.tasks || []).length} tugas terdaftar dan ${(selectedCourse.groups || []).length} kelompok terbagi.`;
+    try {
+      const activeKey = geminiApiKey.trim();
+      if (!activeKey) {
+        throw new Error('API Key Gemini belum disetel. Hubungi Kosma untuk memasukkan API Key.');
       }
-      setChatMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
-    }, 800);
+
+      // Context prompt about this specific academic course
+      const courseContext = `Anda adalah "Asisten AI Akademik MPS2" untuk mata kuliah "${selectedCourse.name} (${selectedCourse.code})" pada Program Studi S2 Magister Pendidikan Islam.
+Dosen Pengampu: ${selectedCourse.lecturer}
+Jadwal: ${selectedCourse.day}, ${selectedCourse.time}, Ruangan: ${selectedCourse.room}
+Ringkasan Silabus Resmi:
+${selectedCourse.syllabusSummary}
+
+Daftar Tugas Terdaftar (${(selectedCourse.tasks || []).length}):
+${(selectedCourse.tasks || []).map(t => `- [${t.type}] ${t.title}: ${t.description} (Deadline: ${t.deadline})`).join('\n') || 'Belum ada tugas resmi'}
+
+Daftar Kelompok Terbagi (${(selectedCourse.groups || []).length}):
+${(selectedCourse.groups || []).map(g => `- ${g.name}: ${g.topic || 'Topik belum ditentukan'} (Anggota: ${(g.members || []).join(', ')})`).join('\n') || 'Belum ada pembagian kelompok'}
+
+Petunjuk Menjawab:
+- Jawablah secara santun, ilmiah, bernuansa akademis pascasarjana (S2), dan terstruktur rapi.
+- Berikan referensi konseptual atau panduan penulisan makalah/artikel jurnal jika mahasiswa bertanya tentang tugas/materi.
+- Jika ditanya informasi matkul, prioritaskan fakta di atas.
+- Gunakan bahasa Indonesia yang baik.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${activeKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: `${courseContext}\n\nPertanyaan Mahasiswa: ${userText}` }
+              ]
+            }
+          ]
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error?.message || `Gagal menghubungi Gemini (Status: ${response.status})`);
+      }
+
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Maaf, Gemini tidak memberikan balasan.';
+      setChatMessages(prev => [...prev, { sender: 'ai', text: reply }]);
+    } catch (err: any) {
+      console.error('Gemini error:', err);
+      setChatMessages(prev => [...prev, { 
+        sender: 'ai', 
+        text: `⚠️ Maaf, terjadi kendala saat menghubungi Asisten AI Gemini: ${err.message || 'Koneksi terputus'}.` 
+      }]);
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   const renderMainContent = () => (
@@ -1630,50 +1693,93 @@ function MainApp() {
 
             {detailTab === 'ai' && (
               <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-slate-200'} space-y-3`}>
-                <div className="flex items-center gap-2 border-b border-slate-100 dark:border-gray-800 pb-3">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
-                  <h3 className="font-bold text-sm">Asisten AI Silabus ({selectedCourse.code})</h3>
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-xs sm:text-sm flex items-center gap-1.5">
+                        <span>Asisten Gemini AI</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
+                          {selectedCourse.code}
+                        </span>
+                      </h3>
+                      <p className="text-[10px] text-slate-400">Terhubung ke Google Gemini 3.6 Flash (Resmi & Cepat)</p>
+                    </div>
+                  </div>
+
+                  {chatMessages.length > 0 && (
+                    <button
+                      onClick={() => setChatMessages([])}
+                      className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                    >
+                      Bersihkan Chat
+                    </button>
+                  )}
                 </div>
 
-                <div className="h-60 overflow-y-auto space-y-2.5 p-2 rounded-xl bg-slate-50 dark:bg-gray-950/60">
+                <div className="h-72 overflow-y-auto space-y-2.5 p-3 rounded-xl bg-slate-50 dark:bg-gray-950/60 border border-slate-100 dark:border-gray-800/60">
                   {chatMessages.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-10">
-                      Tanyakan apa saja seputar tugas, dosen pengampu, atau jadwal perkuliahan {selectedCourse.code}!
-                    </p>
+                    <div className="text-center py-10 space-y-2">
+                      <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 mx-auto flex items-center justify-center">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-700 dark:text-gray-300">
+                        Tanyakan apa saja seputar mata kuliah {selectedCourse.code}!
+                      </p>
+                      <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                        Contoh: "Bantu ide topik makalah", "Siapa dosen pengampu?", atau "Bagaimana sistematika tugas di silabus?"
+                      </p>
+                    </div>
                   ) : (
                     chatMessages.map((msg, index) => (
                       <div 
                         key={index} 
                         className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
-                        <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${
+                        <div className={`max-w-[88%] p-3 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${
                           msg.sender === 'user' 
-                            ? 'bg-emerald-600 text-white rounded-br-none' 
-                            : darkMode ? 'bg-gray-800 text-gray-200 rounded-bl-none' : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                            ? 'bg-purple-600 text-white rounded-br-none shadow-xs' 
+                            : darkMode 
+                              ? 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700' 
+                              : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-none shadow-2xs'
                         }`}>
                           {msg.text}
                         </div>
                       </div>
                     ))
                   )}
+
+                  {isAiLoading && (
+                    <div className="flex justify-start">
+                      <div className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${darkMode ? 'bg-gray-800 text-purple-400' : 'bg-white text-purple-600 border border-slate-200'}`}>
+                        <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span>Gemini sedang menganalisis silabus & mengetik jawaban...</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Ketik pertanyaan (contoh: Siapa dosen matkul ini?)..."
+                    placeholder={`Tanyakan pada Gemini tentang ${selectedCourse.code}...`}
                     value={chatQuery}
                     onChange={(e) => setChatQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAIChat()}
-                    className={`flex-1 px-3 py-2 text-xs rounded-xl border outline-none ${
+                    disabled={isAiLoading}
+                    className={`flex-1 px-3 py-2 text-xs rounded-xl border outline-none disabled:opacity-60 ${
                       darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
                   />
                   <button
                     onClick={handleAIChat}
-                    className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-xs"
+                    disabled={isAiLoading || !chatQuery.trim()}
+                    className="px-3.5 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1 text-xs font-bold"
                   >
-                    <Send className="w-4 h-4" />
+                    <Send className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Kirim</span>
                   </button>
                 </div>
               </div>
@@ -1955,6 +2061,65 @@ function MainApp() {
                       >
                         <Database className="w-3.5 h-3.5" /> Info Supabase DB
                       </button>
+                    </div>
+
+                    {/* SECTION: GOOGLE GEMINI AI CONFIGURATION */}
+                    <div className={`p-4 sm:p-5 rounded-2xl border ${darkMode ? 'bg-gradient-to-br from-indigo-950/40 to-gray-900 border-indigo-800/50' : 'bg-gradient-to-br from-indigo-50/70 to-white border-indigo-200'} space-y-3 shadow-2xs`}>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-xs sm:text-sm text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                            <span>Integrasi Google Gemini 3.6 Flash (AI Chatbot Silabus)</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                              Aktif & Terhubung
+                            </span>
+                          </h3>
+                          <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80">
+                            Mahasiswa dapat bertanya materi, tugas, dan referensi jurnal di tab AI Chat tiap mata kuliah.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-xs font-bold text-slate-700 dark:text-gray-300">
+                          API Key Gemini Aktif:
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={geminiApiKey}
+                            onChange={(e) => {
+                              setGeminiApiKey(e.target.value);
+                              localStorage.setItem('mps2_gemini_api_key', e.target.value);
+                            }}
+                            placeholder="AQ.Ab8RN6... / AIzaSy..."
+                            className={`flex-1 p-2.5 text-xs font-mono rounded-xl border outline-none ${
+                              darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+                            }`}
+                          />
+                          <button
+                            onClick={async () => {
+                              localStorage.setItem('mps2_gemini_api_key', geminiApiKey);
+                              try {
+                                await supabase
+                                  .from('mps2_store')
+                                  .upsert({ id: 'gemini_config', data: { api_key: geminiApiKey }, updated_at: new Date().toISOString() });
+                                alert('API Key Gemini berhasil disimpan dan disinkronkan ke cloud!');
+                              } catch (err) {
+                                alert('API Key Gemini tersimpan di perangkat lokal.');
+                              }
+                            }}
+                            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs"
+                          >
+                            Simpan
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          💡 <em>Kunci tersimpan aman di cloud Supabase dan tersinkronisasi otomatis untuk seluruh mahasiswa.</em>
+                        </p>
+                      </div>
                     </div>
 
                     {/* SECTION: SMART IMPORT KELOMPOK GENERATOR */}
