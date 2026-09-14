@@ -353,6 +353,9 @@ function MainApp() {
 
     // Prevent race condition: DO NOT overwrite Supabase until initial fetch has completed!
     if (!isInitialFetchCompleted.current) return;
+    // CRITICAL GUARD: Only Kosma / Admin should push changes to Supabase cloud!
+    // Regular students (on Netlify or mobile) only read and receive realtime updates.
+    if (!isLoggedInAdmin) return;
 
     const syncTimer = setTimeout(() => {
       supabase
@@ -369,7 +372,7 @@ function MainApp() {
     }, 600);
 
     return () => clearTimeout(syncTimer);
-  }, [courses]);
+  }, [courses, isLoggedInAdmin]);
 
   const handleForceCloudPull = async () => {
     try {
