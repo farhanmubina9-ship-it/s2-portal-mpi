@@ -880,10 +880,10 @@ Daftar Kelompok Terbagi (${(selectedCourse.groups || []).length}):
 ${(selectedCourse.groups || []).map(g => `- ${g.name}: ${g.topic || 'Topik belum ditentukan'} (Anggota: ${(g.members || []).join(', ')})`).join('\n') || 'Belum ada pembagian kelompok'}
 
 Petunjuk Menjawab:
-- Jawablah secara santun, ilmiah, bernuansa akademis pascasarjana (S2), dan terstruktur rapi.
-- Berikan referensi konseptual atau panduan penulisan makalah/artikel jurnal jika mahasiswa bertanya tentang tugas/materi.
-- Jika ditanya informasi matkul, prioritaskan fakta di atas.
-- Gunakan bahasa Indonesia yang baik.`;
+- Jawablah secara natural, luwes, mengalir, dan komunikatif layaknya asisten AI modern yang cerdas dan bersahabat.
+- Sesuaikan gaya bahasa: jika mahasiswa bertanya santai atau curhat ide riset, jawablah dengan hangat dan solutif; jika bertanya teknis silabus/tugas, jawablah secara terstruktur dan informatif.
+- Gunakan data mata kuliah di atas sebagai rujukan fakta yang akurat.
+- Gunakan bahasa Indonesia yang baik, luwes, dan mudah dipahami.`;
 
       // Try primary model (gemini-3.6-flash) with fallback to gemini-flash-latest or gemini-3.5-flash
       const candidateModels = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash'];
