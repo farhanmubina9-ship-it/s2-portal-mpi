@@ -885,27 +885,44 @@ Petunjuk Menjawab:
 - Jika ditanya informasi matkul, prioritaskan fakta di atas.
 - Gunakan bahasa Indonesia yang baik.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${activeKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: `${courseContext}\n\nPertanyaan Mahasiswa: ${userText}` }
-              ]
-            }
-          ]
-        })
-      });
+      // Try primary model (gemini-3.6-flash) with fallback to gemini-flash-latest or gemini-3.5-flash
+      const candidateModels = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash'];
+      let reply = '';
+      let lastErrorMessage = '';
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || `Gagal menghubungi Gemini (Status: ${response.status})`);
+      for (const modelName of candidateModels) {
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [
+                    { text: `${courseContext}\n\nPertanyaan Mahasiswa: ${userText}` }
+                  ]
+                }
+              ]
+            })
+          });
+
+          const data = await response.json();
+          if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+            reply = data.candidates[0].content.parts[0].text;
+            break;
+          } else if (data.error?.message) {
+            lastErrorMessage = data.error.message;
+          }
+        } catch (e: any) {
+          lastErrorMessage = e.message;
+        }
       }
 
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Maaf, Gemini tidak memberikan balasan.';
+      if (!reply) {
+        throw new Error(lastErrorMessage || 'Model Gemini belum memberikan respon.');
+      }
+
       setChatMessages(prev => [...prev, { sender: 'ai', text: reply }]);
     } catch (err: any) {
       console.error('Gemini error:', err);
