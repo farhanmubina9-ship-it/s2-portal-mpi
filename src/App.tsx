@@ -892,11 +892,12 @@ Daftar Kelompok Terbagi (${(selectedCourse.groups || []).length}):
 ${(selectedCourse.groups || []).map(g => `- ${g.name}: ${g.topic || 'Topik belum ditentukan'} (Anggota: ${(g.members || []).join(', ')})`).join('\n') || 'Belum ada pembagian kelompok'}
 
 Petunjuk Menjawab:
-- Berbicaralah santai, luwes, mengalir, dan ramah selayaknya asisten AI pintar (seperti ChatGPT atau Gemini Web pada umumnya).
-- JANGAN selalu mengulang perkenalan panjang atau menyebutkan nama dosen dan jadwal di setiap jawaban kecuali mahasiswa memang menanyakannya.
-- Jika mahasiswa menyapa ("halo", "hai", dll), sambutlah dengan santai dan hangat, tanyakan apa yang sedang dipersiapkan atau ingin didiskusikan.
-- Hindari penggunaan tanda bintang/bintang dua (**) yang berlebihan atau beruntun agar teks nyaman dan bersih dibaca.
-- Jadilah teman diskusi akademis yang asyik, solutif, dan bisa diajak curhat seputar materi kuliah maupun tugas.`;
+- Berbicaralah santai, luwes, mengalir, empati, dan ramah layaknya asisten AI cerdas serbaguna (seperti ChatGPT atau Gemini pada umumnya).
+- BISA DIAJAK CURHAT & NGOBROL BEBAS: Jangan kaku! Jika mahasiswa ingin curhat tentang lelahnya kuliah, kesulitan membagi waktu, bingung arah riset, atau topik umum lainnya di luar materi, tanggapilah dengan hangat, suportif, dan beri motivasi selayaknya teman baik yang bijak.
+- JANGAN membatasi diri hanya pada mata kuliah ini: Mahasiswa bebas berdiskusi tentang apa saja. Data silabus dan tugas di atas HANYA sebagai rujukan jika mahasiswa menanyakan hal spesifik tentang mata kuliah ini.
+- JANGAN selalu mengulang perkenalan panjang, nama dosen, atau jadwal perkuliahan di setiap respon.
+- Hindari tanda bintang/bintang dua (**) yang berlebihan atau beruntun agar teks rapi dan bersih dibaca.
+- Gunakan bahasa Indonesia yang baik, luwes, santai, dan nyaman dibaca.`;
 
       // Try primary model (gemini-3.6-flash) with fallback to gemini-flash-latest or gemini-3.5-flash
       const candidateModels = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash'];
@@ -1863,6 +1864,8 @@ Petunjuk Menjawab:
                               setSelectedCourseId(course.id);
                               setDetailTab('info');
                               setActivePdfIndex(0);
+                              setChatMessages([]);
+                              setChatQuery('');
                             }}
                             className="p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 hover:scale-[1.01] cursor-pointer shadow-xs relative overflow-hidden flex flex-col justify-between"
                             style={{
@@ -1942,6 +1945,8 @@ Petunjuk Menjawab:
                               setSelectedCourseId(course.id);
                               setDetailTab('info');
                               setActivePdfIndex(0);
+                              setChatMessages([]);
+                              setChatQuery('');
                             }}
                             className="p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 hover:scale-[1.01] cursor-pointer shadow-xs relative overflow-hidden flex flex-col justify-between"
                             style={{
